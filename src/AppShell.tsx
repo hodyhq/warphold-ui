@@ -11,6 +11,7 @@ import { Login } from "./pages/fleet/Login";
 import { Mark } from "./pages/fleet/Mark";
 import { Overview } from "./pages/fleet/Overview";
 import { Targets } from "./pages/fleet/Targets";
+import { Templates } from "./pages/fleet/Templates";
 import { Placeholder } from "./pages/fleet/Placeholder";
 
 const NAV: NavItem[] = [
@@ -95,7 +96,7 @@ function FleetRoutes({ activated }: { activated: boolean }) {
         <Route path="/fleet/devices" element={<Devices />} />
         <Route path="/fleet/devices/:id" element={<Device />} />
         <Route path="/fleet/groups" element={<Groups />} />
-        <Route path="/fleet/policies" element={<Placeholder title="Policy templates" />} />
+        <Route path="/fleet/policies" element={<Templates />} />
         <Route path="/fleet/targets" element={<Targets />} />
         <Route path="/fleet/settings" element={<Placeholder title="Settings" />} />
       </Route>
