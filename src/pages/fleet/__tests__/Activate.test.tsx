@@ -64,7 +64,7 @@ async function fillCredentials() {
 
   // Typed with a stray trailing space: activation and the sign-in that follows
   // must use the same address.
-  await userEvent.type(screen.getByLabelText(/email/i), "hody@hody.dev ");
+  await userEvent.type(screen.getByLabelText(/email/i), "admin@example.com ");
   await userEvent.type(screen.getByLabelText(/password/i), "pw12345678");
   await userEvent.click(screen.getByRole("button", { name: /continue/i }));
 }
@@ -98,9 +98,9 @@ describe("Activate", () => {
     await userEvent.click(screen.getByRole("button", { name: /^activate$/i }));
 
     await waitFor(() =>
-      expect(activate).toHaveBeenCalledWith("setup-token-value", "seal me please", "hody@hody.dev", "pw12345678"),
+      expect(activate).toHaveBeenCalledWith("setup-token-value", "seal me please", "admin@example.com", "pw12345678"),
     );
-    await waitFor(() => expect(login).toHaveBeenCalledWith("hody@hody.dev", "pw12345678"));
+    await waitFor(() => expect(login).toHaveBeenCalledWith("admin@example.com", "pw12345678"));
     expect(createTarget).toHaveBeenCalledWith({ name: "tank", kind: "filesystem", path: "/tank/warphold" });
     expect(createTemplate).toHaveBeenCalledWith(
       expect.objectContaining({ sources: ["~"], policy: expect.objectContaining({ scheduling: { intervalSeconds: 3600 } }) }),
@@ -120,7 +120,7 @@ describe("Activate", () => {
     });
     renderWizard();
     await fillCredentials();
-    await userEvent.type(screen.getByLabelText(/bucket/i), "hody-backups");
+    await userEvent.type(screen.getByLabelText(/bucket/i), "fleet-backups");
     await userEvent.type(screen.getByLabelText(/key id/i), "004abc");
     await userEvent.type(screen.getByLabelText(/^application key$/i), "SECRETKEY");
     await userEvent.click(screen.getByRole("button", { name: /^activate$/i }));

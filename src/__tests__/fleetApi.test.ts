@@ -41,12 +41,12 @@ describe("fleet API client", () => {
   it("adds the CSRF header from the wh_csrf cookie on non-GET requests", async () => {
     mock.onPost("/session").reply(204);
 
-    await fleet.login("hody@example.com", "correct horse battery");
+    await fleet.login("admin@example.com", "correct horse battery");
 
     const req = mock.history.post[0];
     expect(req.url).toBe("/session");
     expect(req.headers?.["X-WarpHold-CSRF"]).toBe("csrf-token-value");
-    expect(JSON.parse(req.data)).toEqual({ email: "hody@example.com", password: "correct horse battery" });
+    expect(JSON.parse(req.data)).toEqual({ email: "admin@example.com", password: "correct horse battery" });
   });
 
   it("adds the CSRF header on DELETE too", async () => {
@@ -85,24 +85,24 @@ describe("fleet API client", () => {
   it("carries the setup token in its header, never in the activation body", async () => {
     mock.onPost("/activate").reply(201, { admin_id: 1 });
 
-    await fleet.activate("setup-token-value", "seal me please", "hody@example.com", "pw12345678");
+    await fleet.activate("setup-token-value", "seal me please", "admin@example.com", "pw12345678");
 
     const req = mock.history.post[0];
     expect(req.headers?.["X-WarpHold-Setup-Token"]).toBe("setup-token-value");
     expect(JSON.parse(req.data)).toEqual({
       passphrase: "seal me please",
-      email: "hody@example.com",
+      email: "admin@example.com",
       password: "pw12345678",
     });
   });
 
   it("puts one changed setting in a partial PUT and returns the merged result", async () => {
-    mock.onPut("/settings").reply(200, { fleet_name: "moinzadeh-home", poll_interval: 900 });
+    mock.onPut("/settings").reply(200, { fleet_name: "home-fleet", poll_interval: 900 });
 
     const merged = await fleet.setSetting("poll_interval", 900);
 
     expect(JSON.parse(mock.history.put[0].data)).toEqual({ poll_interval: 900 });
-    expect(merged).toEqual({ fleet_name: "moinzadeh-home", poll_interval: 900 });
+    expect(merged).toEqual({ fleet_name: "home-fleet", poll_interval: 900 });
   });
 
   it("redirects to the login page on 401", async () => {

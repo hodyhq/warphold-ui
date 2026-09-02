@@ -44,11 +44,11 @@ describe("Login", () => {
     login.mockResolvedValue(undefined);
     renderLogin();
 
-    await userEvent.type(screen.getByLabelText(/email/i), "hody@example.com");
+    await userEvent.type(screen.getByLabelText(/email/i), "admin@example.com");
     await userEvent.type(screen.getByLabelText(/password/i), "correct horse");
     await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
 
-    await waitFor(() => expect(login).toHaveBeenCalledWith("hody@example.com", "correct horse"));
+    await waitFor(() => expect(login).toHaveBeenCalledWith("admin@example.com", "correct horse"));
     expect(await screen.findByText("overview screen")).toBeInTheDocument();
   });
 
@@ -56,7 +56,7 @@ describe("Login", () => {
     login.mockRejectedValue({ response: { status: 401, data: { error: "wrong email or password" } } });
     renderLogin();
 
-    await userEvent.type(screen.getByLabelText(/email/i), "hody@example.com");
+    await userEvent.type(screen.getByLabelText(/email/i), "admin@example.com");
     await userEvent.type(screen.getByLabelText(/password/i), "wrong");
     await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
 
@@ -68,7 +68,7 @@ describe("Login", () => {
     login.mockRejectedValue({ response: { status: 429, data: { error: "too many attempts, wait a minute" } } });
     renderLogin();
 
-    await userEvent.type(screen.getByLabelText(/email/i), "hody@example.com");
+    await userEvent.type(screen.getByLabelText(/email/i), "admin@example.com");
     await userEvent.type(screen.getByLabelText(/password/i), "wrong");
     await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
 
@@ -79,7 +79,7 @@ describe("Login", () => {
     login.mockRejectedValue({ response: { status: 409, data: { error: "fleet is not activated" } } });
     renderLogin();
 
-    await userEvent.type(screen.getByLabelText(/email/i), "hody@example.com");
+    await userEvent.type(screen.getByLabelText(/email/i), "admin@example.com");
     await userEvent.type(screen.getByLabelText(/password/i), "whatever pass");
     await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
 

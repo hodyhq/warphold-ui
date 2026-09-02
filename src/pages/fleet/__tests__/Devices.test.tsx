@@ -41,7 +41,7 @@ function agent(over: Partial<AgentOut> & Pick<AgentOut, "id" | "name">): AgentOu
 }
 
 const AGENTS: AgentOut[] = [
-  agent({ id: "ag_fw13", name: "hody-fw13", group_id: 1 }),
+  agent({ id: "ag_fw13", name: "laptop-1", group_id: 1 }),
   agent({ id: "ag_nuc", name: "media-nuc", group_id: 2, health: "red", version: "0.1.1" }),
   agent({ id: "ag_mom", name: "mom-laptop", group_id: 1, health: "yellow" }),
   agent({ id: "ag_old", name: "old-tower", group_id: 2, health: "revoked", revoked_at: "2026-08-20T00:00:00Z" }),
@@ -53,7 +53,7 @@ const GROUPS: Group[] = [
 ];
 
 const OVERVIEW: Overview = {
-  fleet_name: "moinzadeh-home",
+  fleet_name: "home-fleet",
   counts: { agents: 3, green: 1, yellow: 1, red: 1, unknown: 0, targets: 1 },
   stored_bytes: 0,
   dedup_ratio: null,
@@ -62,7 +62,7 @@ const OVERVIEW: Overview = {
   devices: [
     {
       id: "ag_fw13",
-      name: "hody-fw13",
+      name: "laptop-1",
       group: "Laptops",
       health: "green",
       last: "2 h ago",
@@ -120,7 +120,7 @@ describe("Devices", () => {
     await waitFor(() => expect(rowNames()).toEqual(["ag_fw13", "ag_nuc", "ag_mom"]));
 
     const row = document.querySelector('[data-row="ag_fw13"]');
-    expect(row).toHaveTextContent("hody-fw13");
+    expect(row).toHaveTextContent("laptop-1");
     expect(row).toHaveTextContent("Laptops");
     expect(row).toHaveTextContent("2 h ago");
     expect(row).toHaveTextContent("1.2 GB");

@@ -148,7 +148,7 @@ function FleetNameCard({
             value={name}
             maxLength={64}
             autoComplete="off"
-            placeholder="moinzadeh-home"
+            placeholder="home-fleet"
             onChange={(e) => setName(e.target.value)}
           />
         </Field>

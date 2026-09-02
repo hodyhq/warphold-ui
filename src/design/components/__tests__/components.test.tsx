@@ -169,7 +169,7 @@ describe("Table", () => {
     { key: "group", label: "Group" },
   ];
   const rows = [
-    { key: "a", cells: ["hody-fw13", "Laptops"] },
+    { key: "a", cells: ["laptop-1", "Laptops"] },
     { key: "b", cells: ["media-nuc", "Servers"] },
   ];
 
@@ -183,7 +183,7 @@ describe("Table", () => {
   it("calls onRowClick with the row key", () => {
     const onRowClick = vi.fn();
     render(<Table columns={columns} rows={rows} template="1fr 2fr" onRowClick={onRowClick} />);
-    fireEvent.click(screen.getByText("hody-fw13"));
+    fireEvent.click(screen.getByText("laptop-1"));
     expect(onRowClick).toHaveBeenCalledWith("a");
   });
 });

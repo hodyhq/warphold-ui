@@ -24,14 +24,14 @@ vi.mock(import("../../../api/fleet"), async (importOriginal) => ({
 }));
 
 const ADMINS: Admin[] = [
-  { id: 1, email: "hody@hody.dev", role: "owner", created_at: "2026-08-01T00:00:00Z" },
-  { id: 2, email: "second@hody.dev", role: "admin", created_at: "2026-08-02T00:00:00Z" },
+  { id: 1, email: "admin@example.com", role: "owner", created_at: "2026-08-01T00:00:00Z" },
+  { id: 2, email: "second@example.com", role: "admin", created_at: "2026-08-02T00:00:00Z" },
 ];
 
 beforeEach(() => {
-  settings.mockReset().mockResolvedValue({ fleet_name: "moinzadeh-home", poll_interval: 300 });
+  settings.mockReset().mockResolvedValue({ fleet_name: "home-fleet", poll_interval: 300 });
   setSetting.mockReset().mockImplementation((key: string, value: unknown) =>
-    Promise.resolve({ fleet_name: "moinzadeh-home", poll_interval: 300, [key]: value }),
+    Promise.resolve({ fleet_name: "home-fleet", poll_interval: 300, [key]: value }),
   );
   admins.mockReset().mockResolvedValue(ADMINS);
   inviteAdmin.mockReset().mockResolvedValue({ id: 3 });
@@ -42,10 +42,10 @@ describe("Settings", () => {
   it("renders the live settings and the cards that are still waiting", async () => {
     render(<Settings />);
 
-    expect(await screen.findByLabelText(/name/i)).toHaveValue("moinzadeh-home");
+    expect(await screen.findByLabelText(/name/i)).toHaveValue("home-fleet");
     expect(screen.getByLabelText(/poll interval/i)).toHaveValue("300");
     expect(screen.getByLabelText(/health thresholds/i)).toHaveValue("stale after 26 h · failing after 7 d");
-    expect(screen.getByText("hody@hody.dev")).toBeInTheDocument();
+    expect(screen.getByText("admin@example.com")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /change passphrase/i })).toBeDisabled();
     expect(screen.getByText(/One email a week/i)).toBeInTheDocument();
   });
@@ -82,21 +82,21 @@ describe("Settings", () => {
     await userEvent.click(await screen.findByRole("button", { name: /invite admin/i }));
 
     const dialog = screen.getByRole("dialog");
-    await userEvent.type(within(dialog).getByLabelText(/email/i), "third@hody.dev");
+    await userEvent.type(within(dialog).getByLabelText(/email/i), "third@example.com");
     await userEvent.type(within(dialog).getByLabelText(/first password/i), "pw12345678");
     await userEvent.click(within(dialog).getByRole("button", { name: /create admin/i }));
 
-    await waitFor(() => expect(inviteAdmin).toHaveBeenCalledWith("third@hody.dev", "pw12345678"));
+    await waitFor(() => expect(inviteAdmin).toHaveBeenCalledWith("third@example.com", "pw12345678"));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
   it("removes an admin after a confirmation", async () => {
     render(<Settings />);
-    await screen.findByText("second@hody.dev");
+    await screen.findByText("second@example.com");
 
     await userEvent.click(screen.getAllByRole("button", { name: /remove/i })[1]);
     const dialog = screen.getByRole("dialog");
-    expect(dialog).toHaveTextContent("second@hody.dev");
+    expect(dialog).toHaveTextContent("second@example.com");
     await userEvent.click(within(dialog).getByRole("button", { name: /remove admin/i }));
 
     await waitFor(() => expect(deleteAdmin).toHaveBeenCalledWith(2));
@@ -107,7 +107,7 @@ describe("Settings", () => {
       response: { status: 409, data: { error: "cannot delete the last admin" } },
     });
     render(<Settings />);
-    await screen.findByText("hody@hody.dev");
+    await screen.findByText("admin@example.com");
 
     await userEvent.click(screen.getAllByRole("button", { name: /remove/i })[0]);
     const dialog = screen.getByRole("dialog");

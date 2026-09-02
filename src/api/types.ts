@@ -66,20 +66,21 @@ export interface Group {
 }
 
 /**
- * `templateOut` in admin_templates.go. `policy` is a raw Kopia policy object;
- * the server validates it, the UI edits it as JSON.
+ * `templateOut` in admin_templates.go. `policy` is a Kopia policy object; the
+ * server validates it against `policy.Policy`, and the UI edits it both
+ * through the template form and as JSON.
  */
 export interface Template {
   id: number;
   name: string;
   sources: string[];
-  policy: unknown;
+  policy: KopiaPolicy;
 }
 
 export interface TemplateInput {
   name: string;
   sources: string[];
-  policy: unknown;
+  policy: KopiaPolicy;
 }
 
 /** `targetOut` in admin_targets.go. Credentials are never returned. */

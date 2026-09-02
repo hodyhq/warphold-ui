@@ -36,7 +36,7 @@ const GROUPS: Group[] = [
 ];
 
 const TARGETS: Target[] = [
-  { id: 1, name: "hody-backups", kind: "b2", bucket: "hody-backups", region: "us-west-004" },
+  { id: 1, name: "fleet-backups", kind: "b2", bucket: "fleet-backups", region: "us-west-004" },
   { id: 2, name: "tank", kind: "filesystem", path: "/tank/warphold" },
 ];
 
@@ -62,7 +62,7 @@ function agent(id: string, groupID: number): AgentOut {
   };
 }
 
-const AGENTS: AgentOut[] = [agent("hody-fw13", 1), agent("office-desktop", 1), agent("pve1", 2)];
+const AGENTS: AgentOut[] = [agent("laptop-1", 1), agent("office-desktop", 1), agent("node-a", 2)];
 
 /** One live token for Laptops, none for Servers. */
 function tokensFor(groupID: number): TokenOut[] {
@@ -118,7 +118,7 @@ describe("Groups", () => {
     expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent("2 groups");
 
     const laptops = await card("Laptops");
-    expect(laptops).toHaveTextContent("B2 · hody-backups");
+    expect(laptops).toHaveTextContent("B2 · fleet-backups");
     expect(laptops).toHaveTextContent("Home default");
     expect(laptops).toHaveTextContent("2 devices");
     expect(laptops).toHaveTextContent("1 token · expires in 6 d · 3 uses left");

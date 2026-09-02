@@ -20,7 +20,7 @@ const mockedOverview = vi.mocked(fleet.overview);
 
 /** Enough of GET /overview for the shell's default route to render. */
 const EMPTY_OVERVIEW: Overview = {
-  fleet_name: "moinzadeh-home",
+  fleet_name: "home-fleet",
   counts: { agents: 0, green: 0, yellow: 0, red: 0, unknown: 0, targets: 0 },
   stored_bytes: 0,
   dedup_ratio: null,
@@ -31,7 +31,7 @@ const EMPTY_OVERVIEW: Overview = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockedSettings.mockResolvedValue({ fleet_name: "moinzadeh-home", poll_interval: 300 });
+  mockedSettings.mockResolvedValue({ fleet_name: "home-fleet", poll_interval: 300 });
   mockedOverview.mockResolvedValue(EMPTY_OVERVIEW);
   window.history.pushState({}, "", "/");
 });
@@ -44,8 +44,18 @@ describe("AppShell", () => {
 
     expect(await screen.findByText("WARPHOLD")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Devices" })).toHaveAttribute("href", "/fleet/devices");
-    expect(await screen.findByText("moinzadeh-home")).toBeInTheDocument();
+    expect(await screen.findByText("home-fleet")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent("protected right now");
+  });
+
+  it("sends an activated fleet away from the wizard", async () => {
+    mockedDetect.mockResolvedValue({ mode: "fleet", activated: true });
+    window.history.pushState({}, "", "/fleet/activate");
+
+    render(<AppShell />);
+
+    expect(await screen.findByRole("link", { name: "Devices" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /choose the sealing passphrase/i })).not.toBeInTheDocument();
   });
 
   it("sends an unactivated fleet to the activation wizard", async () => {

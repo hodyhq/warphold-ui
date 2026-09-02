@@ -181,6 +181,36 @@ describe("Templates", () => {
     );
   });
 
+  it("opens the created template once the reloaded list holds it", async () => {
+    render(<Templates />);
+    await userEvent.click(await screen.findByRole("button", { name: /new template/i }));
+
+    await userEvent.type(screen.getByLabelText(/template name/i), "Family · docs");
+    await userEvent.type(screen.getByLabelText(/sources/i), "~/Documents");
+    // The reload after the save is what first sees the new template.
+    templates.mockResolvedValue([
+      ...TEMPLATES,
+      { id: 3, name: "Family · docs", sources: ["~/Documents"], policy: { scheduling: { manual: true } } },
+    ]);
+    await userEvent.click(screen.getByRole("button", { name: /create template/i }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(/saved/i);
+    await waitFor(() => expect(screen.getByLabelText(/template name/i)).toHaveValue("Family · docs"));
+    expect(screen.getByLabelText(/sources/i)).toHaveValue("~/Documents");
+    expect(screen.getByRole("button", { name: /save & push/i })).toBeInTheDocument();
+  });
+
+  it("confirms an update without losing the editor", async () => {
+    render(<Templates />);
+    await screen.findByText("used by Laptops");
+
+    await userEvent.selectOptions(screen.getByLabelText(/compression/i), "none");
+    await userEvent.click(screen.getByRole("button", { name: /save & push/i }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(/saved/i);
+    expect(screen.getByLabelText(/template name/i)).toHaveValue("Home default");
+  });
+
   it("discards edits back to what the server holds", async () => {
     render(<Templates />);
     await screen.findByText("used by Laptops");

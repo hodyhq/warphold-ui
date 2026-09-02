@@ -30,7 +30,7 @@ function buckets() {
 }
 
 const DATA: OverviewData = {
-  fleet_name: "moinzadeh-home",
+  fleet_name: "home-fleet",
   counts: { agents: 7, green: 5, yellow: 1, red: 1, unknown: 0, targets: 2 },
   stored_bytes: 0,
   dedup_ratio: null,
@@ -44,7 +44,7 @@ const DATA: OverviewData = {
   devices: [
     {
       id: "ag_fw13",
-      name: "hody-fw13",
+      name: "laptop-1",
       group: "Laptops",
       health: "green",
       last: "2 h ago",
@@ -116,7 +116,7 @@ describe("Overview", () => {
     renderOverview();
 
     // Exact names: the attention callout also mentions media-nuc.
-    const row = await screen.findByRole("button", { name: "hody-fw13" });
+    const row = await screen.findByRole("button", { name: "laptop-1" });
     expect(row).toHaveTextContent("2 h ago");
     expect(screen.getByRole("button", { name: "media-nuc" })).toBeInTheDocument();
 

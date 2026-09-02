@@ -87,7 +87,12 @@ function FleetRoutes({ activated, onActivated }: { activated: boolean; onActivat
   return (
     <Routes>
       <Route path="/fleet/login" element={<Login />} />
-      <Route path="/fleet/activate" element={<Activate onActivated={onActivated} />} />
+      {/* The wizard is a one-shot: once the fleet is activated the server
+          refuses another /activate, so the route is not left standing. */}
+      <Route
+        path="/fleet/activate"
+        element={activated ? <Navigate to="/fleet" replace /> : <Activate onActivated={onActivated} />}
+      />
       {/* Before activation there is nothing to show but the wizard, so the
           whole shell is replaced by a redirect to it. */}
       <Route element={activated ? <FleetLayout /> : <Navigate to="/fleet/activate" replace />}>

@@ -24,9 +24,9 @@ vi.mock(import("../../../api/fleet"), async (importOriginal) => ({
 const TARGETS: Target[] = [
   {
     id: 1,
-    name: "hody-backups",
+    name: "fleet-backups",
     kind: "b2",
-    bucket: "hody-backups",
+    bucket: "fleet-backups",
     region: "us-west-004",
     object_lock_verified_at: "2026-08-30T03:00:00Z",
   },
@@ -67,7 +67,7 @@ describe("Targets", () => {
     render(<Targets />);
 
     const b2 = await screen.findByTestId("target-1");
-    expect(b2).toHaveTextContent("Backblaze B2 · hody-backups");
+    expect(b2).toHaveTextContent("Backblaze B2 · fleet-backups");
     expect(b2).toHaveTextContent("Object Lock verified");
     expect(b2).toHaveTextContent("us-west-004");
     expect(b2).toHaveTextContent("2 devices");
@@ -99,7 +99,7 @@ describe("Targets", () => {
 
     const dialog = screen.getByRole("dialog");
     await userEvent.type(within(dialog).getByLabelText(/name/i), "offsite");
-    await userEvent.type(within(dialog).getByLabelText(/bucket/i), "hody-offsite");
+    await userEvent.type(within(dialog).getByLabelText(/bucket/i), "offsite-backups");
     await userEvent.type(within(dialog).getByLabelText(/region/i), "us-west-004");
     await userEvent.type(within(dialog).getByLabelText(/key id/i), "004abc");
     await userEvent.type(within(dialog).getByLabelText(/^application key$/i), "SECRETKEY");
@@ -109,7 +109,7 @@ describe("Targets", () => {
       expect(createTarget).toHaveBeenCalledWith({
         name: "offsite",
         kind: "b2",
-        bucket: "hody-offsite",
+        bucket: "offsite-backups",
         region: "us-west-004",
         key_id: "004abc",
         key: "SECRETKEY",
@@ -142,7 +142,7 @@ describe("Targets", () => {
 
     const dialog = screen.getByRole("dialog");
     await userEvent.type(within(dialog).getByLabelText(/name/i), "offsite");
-    await userEvent.type(within(dialog).getByLabelText(/bucket/i), "hody-offsite");
+    await userEvent.type(within(dialog).getByLabelText(/bucket/i), "offsite-backups");
     await userEvent.type(within(dialog).getByLabelText(/key id/i), "004abc");
     await userEvent.type(within(dialog).getByLabelText(/^application key$/i), "SECRETKEY");
     await userEvent.click(within(dialog).getByRole("button", { name: /add target/i }));

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
-import { Button, Eyebrow, Field, Input, Select, inputClass } from "../../design/components";
+import { Button, Eyebrow, Field, Input, Select, Toast, inputClass } from "../../design/components";
 import { apiError, fleet } from "../../api/fleet";
 import type { AgentOut, Group, KopiaPolicy, Template } from "../../api/types";
 import {
@@ -28,30 +28,32 @@ export function Templates() {
   /** A template id, or "new" for the unsaved one. */
   const [selected, setSelected] = useState<number | "new" | null>(null);
 
+  const [saved, setSaved] = useState(false);
+
+  /**
+   * Reloads the three lists, and only then moves the selection: a template
+   * just created does not exist in the list this screen is still holding, so
+   * selecting it first would remount the editor against the pre-save list and
+   * show an empty form.
+   */
+  const load = useCallback(async (select?: number) => {
+    const [ts, gs, as] = await Promise.all([fleet.templates(), fleet.groups(), fleet.agents()]);
+    setTemplates(ts);
+    setGroups(gs);
+    setAgents(as);
+    setFailed(false);
+    setSelected((cur) =>
+      select ?? (cur !== null && (cur === "new" || ts.some((t) => t.id === cur)) ? cur : (ts[0]?.id ?? "new")),
+    );
+  }, []);
+
   const reload = useCallback(() => setAttempt((n) => n + 1), []);
 
   useEffect(() => {
-    let live = true;
-    Promise.all([fleet.templates(), fleet.groups(), fleet.agents()]).then(
-      ([ts, gs, as]) => {
-        if (!live) {
-          return;
-        }
-        setTemplates(ts);
-        setGroups(gs);
-        setAgents(as);
-        setFailed(false);
-        // Keep the current selection across a reload; otherwise open the first.
-        setSelected((cur) => (cur !== null && (cur === "new" || ts.some((t) => t.id === cur)) ? cur : (ts[0]?.id ?? "new")));
-      },
-      // A 401 has already sent the browser to the login page from the client's
-      // interceptor; anything else is the server being unreachable.
-      () => live && setFailed(true),
-    );
-    return () => {
-      live = false;
-    };
-  }, [attempt]);
+    // A 401 has already sent the browser to the login page from the client's
+    // interceptor; anything else is the server being unreachable.
+    load().catch(() => setFailed(true));
+  }, [load, attempt]);
 
   if (!templates) {
     if (!failed) {
@@ -85,7 +87,10 @@ export function Templates() {
                 key={t.id}
                 type="button"
                 aria-current={on ? "true" : undefined}
-                onClick={() => setSelected(t.id)}
+                onClick={() => {
+                  setSelected(t.id);
+                  setSaved(false);
+                }}
                 className={clsx(
                   "cursor-pointer border-l-[3px] px-[14px] py-3 text-left",
                   on ? "bg-panel border-l-ember" : "hover:text-ink border-l-transparent",
@@ -102,7 +107,10 @@ export function Templates() {
         <Button
           className="mt-[14px]"
           variant={templates.length === 0 ? "primary" : "default"}
-          onClick={() => setSelected("new")}
+          onClick={() => {
+            setSelected("new");
+            setSaved(false);
+          }}
         >
           New template
         </Button>
@@ -116,9 +124,18 @@ export function Templates() {
           template={current}
           devices={current ? devices(current.id) : 0}
           onSaved={(id) => {
-            setSelected(id);
-            reload();
+            // The confirmation is the parent's, because creating a template
+            // remounts the editor onto the row the reload brings back.
+            setSaved(true);
+            load(id).catch(() => setFailed(true));
           }}
+        />
+      )}
+      {saved && (
+        <Toast
+          message="Saved. Devices pick it up at their next check-in."
+          tone="good"
+          onDismiss={() => setSaved(false)}
         />
       )}
     </div>
@@ -150,7 +167,7 @@ function Editor({
     () => ({
       name: template?.name ?? "",
       sources: (template?.sources ?? []).join("\n"),
-      policy: (template?.policy ?? {}) as KopiaPolicy,
+      policy: template?.policy ?? {},
     }),
     [template],
   );
@@ -162,7 +179,6 @@ function Editor({
   const [jsonError, setJSONError] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [saved, setSaved] = useState(false);
 
   const form = formFromPolicy(policy);
 
@@ -172,13 +188,11 @@ function Editor({
     setPolicy(next);
     setJSON(policyToJSON(next));
     setJSONError("");
-    setSaved(false);
   }
 
   /** The drawer changed: the JSON is the policy, so the form follows it. */
   function editJSON(text: string) {
     setJSON(text);
-    setSaved(false);
     const { policy: parsed, error: bad } = policyFromJSON(text);
     if (parsed) {
       setPolicy(parsed);
@@ -195,7 +209,6 @@ function Editor({
     setJSON(policyToJSON(initial.policy));
     setJSONError("");
     setError("");
-    setSaved(false);
   }
 
   async function save(e: React.FormEvent) {
@@ -206,11 +219,9 @@ function Editor({
       const input = { name: name.trim(), sources: lines(sources), policy };
       if (template) {
         await fleet.updateTemplate(template.id, input);
-        setSaved(true);
         onSaved(template.id);
       } else {
         const created = await fleet.createTemplate(input);
-        setSaved(true);
         onSaved(created.id);
       }
     } catch (err) {
@@ -232,10 +243,7 @@ function Editor({
             value={name}
             autoComplete="off"
             placeholder="Home default"
-            onChange={(e) => {
-              setName(e.target.value);
-              setSaved(false);
-            }}
+            onChange={(e) => setName(e.target.value)}
           />
         </Field>
         <div className="flex gap-2">
@@ -253,10 +261,7 @@ function Editor({
             value={sources}
             spellCheck={false}
             placeholder={"~\n/etc"}
-            onChange={(e) => {
-              setSources(e.target.value);
-              setSaved(false);
-            }}
+            onChange={(e) => setSources(e.target.value)}
             className={clsx(inputClass, "font-mono text-[12px]")}
           />
         </Field>
@@ -351,11 +356,6 @@ function Editor({
       {error && (
         <p role="alert" className="text-bad m-0 text-[13px]">
           {error}
-        </p>
-      )}
-      {saved && !error && (
-        <p role="status" className="text-good m-0 font-mono text-[12px]">
-          Saved. Devices pick it up at their next check-in.
         </p>
       )}
     </form>
