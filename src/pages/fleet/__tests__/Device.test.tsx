@@ -168,6 +168,22 @@ describe("Device", () => {
     expect(await screen.findByText("devices screen")).toBeInTheDocument();
   });
 
+  it("clears the typed name when the revoke dialog is reopened", async () => {
+    renderDevice();
+
+    await userEvent.click(await screen.findByRole("button", { name: /^revoke$/i }));
+    await userEvent.type(within(screen.getByRole("dialog")).getByRole("textbox"), "media-nuc");
+    expect(within(screen.getByRole("dialog")).getByRole("button", { name: /revoke device/i })).toBeEnabled();
+
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: /cancel/i }));
+    await userEvent.click(screen.getByRole("button", { name: /^revoke$/i }));
+
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("textbox")).toHaveValue("");
+    expect(within(dialog).getByRole("button", { name: /revoke device/i })).toBeDisabled();
+    expect(revokeAgent).not.toHaveBeenCalled();
+  });
+
   it("renders a device that has never reported a run", async () => {
     agent.mockResolvedValue({ ...DETAIL, health: "unknown", last_seen_at: null, reports: null });
     renderDevice();

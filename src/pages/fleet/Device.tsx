@@ -166,6 +166,17 @@ export function Device() {
     [id],
   );
 
+  // Both entry points reset the typed name: a cancelled dialog that kept it
+  // would reopen with the confirm button already armed.
+  const openConfirm = useCallback(() => {
+    setTypedName("");
+    setConfirming(true);
+  }, []);
+  const closeConfirm = useCallback(() => {
+    setTypedName("");
+    setConfirming(false);
+  }, []);
+
   const revoke = useCallback(() => {
     fleet.revokeAgent(id).then(
       () => navigate("/fleet/devices"),
@@ -227,7 +238,7 @@ export function Device() {
           <Button disabled title="Recovery kits arrive with Plan 3">
             Recovery kit
           </Button>
-          <Button variant="danger" disabled={revoked} onClick={() => setConfirming(true)}>
+          <Button variant="danger" disabled={revoked} onClick={openConfirm}>
             Revoke
           </Button>
         </div>
@@ -304,7 +315,7 @@ export function Device() {
 
       {stale && <p className="m-0 font-mono text-[12px] text-dim">Cannot reach the server; showing the last state.</p>}
 
-      <Dialog open={confirming} onClose={() => setConfirming(false)} title={`Revoke ${detail.name}?`}>
+      <Dialog open={confirming} onClose={closeConfirm} title={`Revoke ${detail.name}?`}>
         <p className="m-0 text-ink-soft">
           The device loses its repository credentials at once and stops backing up. Snapshots it already took stay in
           the target. This cannot be undone from Fleet.
@@ -313,7 +324,7 @@ export function Device() {
           <Input value={typedName} autoComplete="off" onChange={(e) => setTypedName(e.target.value)} />
         </Field>
         <div className="flex justify-end gap-2">
-          <Button onClick={() => setConfirming(false)}>Cancel</Button>
+          <Button onClick={closeConfirm}>Cancel</Button>
           {/* The typed name is a speed bump, not authorization: the server
               still checks the session and the CSRF token on the POST. */}
           <Button variant="danger" disabled={typedName !== detail.name} onClick={revoke}>
