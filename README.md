@@ -1,5 +1,7 @@
 # Kopia HTML Ui
 
+WarpHold UI — fork of kopia/htmlui; built output committed under `build/` and consumed by [github.com/hodyhq/warphold](https://github.com/hodyhq/warphold) via the Go module.
+
 This is the repository for the html UI for kopia. It is bundled as part of the [kopia UI releases (e.g. `KopiaUI-Setup-X.Y.Z.exe` or a `kopiaui` package)](https://kopia.io/docs/installation/#two-variants-of-kopia).
 
 ## Reporting issues

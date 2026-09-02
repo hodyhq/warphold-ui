@@ -116,7 +116,7 @@ export default class App extends Component {
           <UIPreferenceProvider initalValue={uiPrefs}>
             <Navbar expand="sm" variant="light">
               <Navbar.Brand href="/">
-                <img src="/kopia-flat.svg" className="App-logo" alt="logo" />
+                <img src="/warphold.svg" className="App-logo" alt="logo" />
               </Navbar.Brand>
               <Navbar.Toggle aria-controls="basic-navbar-nav" />
               <Navbar.Collapse id="basic-navbar-nav">
