@@ -1,0 +1,56 @@
+/*
+ * Kinetic design tokens (values from docs/superpowers/design/Main.dc.html).
+ *
+ * Tailwind v4 is imported WITHOUT preflight: the single-user pages still ship
+ * Bootstrap until Task 15 and preflight's reset visibly breaks them. Likewise
+ * the ground/ink/body-font rules are scoped to the `.wh` root class instead of
+ * `body`, so the fleet UI opts in and the Bootstrap pages keep their theme.
+ *
+ * The utilities are imported UNLAYERED on purpose: Bootstrap's reboot is
+ * unlayered too, and unlayered rules beat any cascade layer, so layered
+ * utilities would lose to reboot (e.g. `button { text-transform: none }`
+ * cancelling `uppercase`). Task 15 drops Bootstrap; the layer can come back
+ * then.
+ */
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css";
+@import "./fonts.css";
+
+@theme static {
+  --color-ground: #16181d;
+  --color-panel: #1d2027;
+  --color-line: #2a2e36;
+  --color-line-strong: #3a3f49;
+  --color-ink: #f2f3f5;
+  --color-ink-soft: #c7cbd4;
+  --color-muted: #9aa0ad;
+  --color-dim: #6d7381;
+  --color-ember: #ff6a1a;
+  --color-ember-soft: #ff8a4c;
+  --color-ember-hover: #ffb089;
+  --color-good: #2fbf83;
+  --color-warn: #f5b942;
+  --color-bad: #ff5d5d;
+  --color-bad-panel: #1f1b1d;
+  --color-warn-panel: #1f1d18;
+  --font-display: "Unbounded", "Space Grotesk", system-ui, sans-serif;
+  --font-body: "Space Grotesk", system-ui, sans-serif;
+  --font-mono: "Space Mono", ui-monospace, monospace;
+  --radius-sm: 4px;
+  --radius-pill: 999px;
+}
+
+.wh {
+  min-height: 100vh;
+  background: var(--color-ground);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+.wh a {
+  color: var(--color-ember-soft);
+  text-decoration: none;
+}
+.wh a:hover {
+  color: var(--color-ember-hover);
+}

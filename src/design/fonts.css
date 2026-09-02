@@ -1,0 +1,29 @@
+/*
+ * Self-hosted OFL fonts - no runtime Google Fonts <link>, the product runs in
+ * offline homelabs. Sources: github.com/google/fonts/ofl/{unbounded,
+ * spacegrotesk,spacemono}, converted to WOFF2 with woff2_compress.
+ * Licences: fonts/OFL-Unbounded.txt, OFL-SpaceGrotesk.txt, OFL-SpaceMono.txt.
+ * Unbounded and Space Grotesk are variable (wght axis), so one file covers
+ * every weight the design system uses.
+ */
+@font-face {
+  font-family: "Unbounded";
+  src: url("./fonts/Unbounded-Variable.woff2") format("woff2-variations");
+  font-weight: 200 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("./fonts/SpaceGrotesk-Variable.woff2") format("woff2-variations");
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Space Mono";
+  src: url("./fonts/SpaceMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
