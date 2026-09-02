@@ -53,7 +53,7 @@ describe("AppShell", () => {
 
     render(<AppShell />);
 
-    expect(await screen.findByRole("heading", { name: "Activate Fleet" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /choose the sealing passphrase/i })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Devices" })).not.toBeInTheDocument();
   });
 

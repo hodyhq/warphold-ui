@@ -4,12 +4,14 @@ import App from "./App.jsx";
 import { detectMode, type ModeInfo } from "./mode";
 import { fleet } from "./api/fleet";
 import { Button, Nav, type NavItem } from "./design/components";
+import { Activate } from "./pages/fleet/Activate";
 import { Device } from "./pages/fleet/Device";
 import { Devices } from "./pages/fleet/Devices";
 import { Groups } from "./pages/fleet/Groups";
 import { Login } from "./pages/fleet/Login";
 import { Mark } from "./pages/fleet/Mark";
 import { Overview } from "./pages/fleet/Overview";
+import { Settings } from "./pages/fleet/Settings";
 import { Targets } from "./pages/fleet/Targets";
 import { Templates } from "./pages/fleet/Templates";
 import { Placeholder } from "./pages/fleet/Placeholder";
@@ -81,14 +83,11 @@ function FleetLayout() {
   );
 }
 
-function FleetRoutes({ activated }: { activated: boolean }) {
+function FleetRoutes({ activated, onActivated }: { activated: boolean; onActivated: () => void }) {
   return (
     <Routes>
       <Route path="/fleet/login" element={<Login />} />
-      <Route
-        path="/fleet/activate"
-        element={<Placeholder title="Activate Fleet" note="The activation wizard lands in a later task." />}
-      />
+      <Route path="/fleet/activate" element={<Activate onActivated={onActivated} />} />
       {/* Before activation there is nothing to show but the wizard, so the
           whole shell is replaced by a redirect to it. */}
       <Route element={activated ? <FleetLayout /> : <Navigate to="/fleet/activate" replace />}>
@@ -98,7 +97,7 @@ function FleetRoutes({ activated }: { activated: boolean }) {
         <Route path="/fleet/groups" element={<Groups />} />
         <Route path="/fleet/policies" element={<Templates />} />
         <Route path="/fleet/targets" element={<Targets />} />
-        <Route path="/fleet/settings" element={<Placeholder title="Settings" />} />
+        <Route path="/fleet/settings" element={<Settings />} />
       </Route>
       <Route path="*" element={<Navigate to="/fleet" replace />} />
     </Routes>
@@ -169,7 +168,13 @@ export function AppShell() {
   return (
     <div className="wh">
       <BrowserRouter>
-        {info.mode === "agent" ? <AgentRoutes /> : <FleetRoutes activated={info.activated} />}
+        {info.mode === "agent" ? (
+          <AgentRoutes />
+        ) : (
+          // The wizard hands activation back here: re-running detectMode is
+          // what flips the shell out of its redirect-to-activate state.
+          <FleetRoutes activated={info.activated} onActivated={() => setAttempt((n) => n + 1)} />
+        )}
       </BrowserRouter>
     </div>
   );

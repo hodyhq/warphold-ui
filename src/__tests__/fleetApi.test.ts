@@ -82,6 +82,29 @@ describe("fleet API client", () => {
     expect(agents[0].health).toBe("green");
   });
 
+  it("carries the setup token in its header, never in the activation body", async () => {
+    mock.onPost("/activate").reply(201, { admin_id: 1 });
+
+    await fleet.activate("setup-token-value", "seal me please", "hody@example.com", "pw12345678");
+
+    const req = mock.history.post[0];
+    expect(req.headers?.["X-WarpHold-Setup-Token"]).toBe("setup-token-value");
+    expect(JSON.parse(req.data)).toEqual({
+      passphrase: "seal me please",
+      email: "hody@example.com",
+      password: "pw12345678",
+    });
+  });
+
+  it("puts one changed setting in a partial PUT and returns the merged result", async () => {
+    mock.onPut("/settings").reply(200, { fleet_name: "moinzadeh-home", poll_interval: 900 });
+
+    const merged = await fleet.setSetting("poll_interval", 900);
+
+    expect(JSON.parse(mock.history.put[0].data)).toEqual({ poll_interval: 900 });
+    expect(merged).toEqual({ fleet_name: "moinzadeh-home", poll_interval: 900 });
+  });
+
   it("redirects to the login page on 401", async () => {
     mock.onGet("/agents").reply(401, { error: "unauthorized" });
 

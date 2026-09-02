@@ -152,32 +152,34 @@ const KINDS = [
 ];
 
 /** The kind picker, shared by this dialog and the Activate wizard's step 3. */
-export function KindPicker({
-  kind,
-  onPick,
-}: {
-  kind: Target["kind"];
-  onPick: (kind: Target["kind"]) => void;
-}) {
+export function KindPicker({ kind, onPick }: { kind: Target["kind"]; onPick: (kind: Target["kind"]) => void }) {
   return (
-    <div role="radiogroup" aria-label="Target kind" className="grid grid-cols-2 gap-[14px]">
+    <fieldset className="m-0 grid grid-cols-2 gap-[14px] border-0 p-0">
+      <legend className="text-muted mb-[6px] font-mono text-[11px] tracking-[0.12em] uppercase">Kind</legend>
       {KINDS.map((k) => (
-        <button
+        // Native radios: one tab stop for the group, arrow keys between the
+        // options, and the label's text is the accessible name.
+        <label
           key={k.kind}
-          type="button"
-          role="radio"
-          aria-checked={kind === k.kind}
-          onClick={() => onPick(k.kind)}
           className={clsx(
-            "flex cursor-pointer flex-col gap-[6px] border p-4 text-left",
+            "flex cursor-pointer flex-col gap-[6px] border p-4",
             kind === k.kind ? "border-ember" : "border-line-strong hover:border-ink-soft",
           )}
         >
-          <span className="font-semibold">{k.label}</span>
+          <span className="flex items-center gap-[10px]">
+            <input
+              type="radio"
+              name="target-kind"
+              className="accent-ember"
+              checked={kind === k.kind}
+              onChange={() => onPick(k.kind)}
+            />
+            <span className="font-semibold">{k.label}</span>
+          </span>
           <span className="text-muted">{k.note}</span>
-        </button>
+        </label>
       ))}
-    </div>
+    </fieldset>
   );
 }
 
