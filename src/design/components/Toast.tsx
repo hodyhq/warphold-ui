@@ -16,7 +16,9 @@ export function Toast({ message, tone = "ink", onDismiss, duration = 5000, class
   // render; depending on it would restart the timer each time and a busy
   // screen could keep the toast up indefinitely.
   const dismissRef = React.useRef(onDismiss);
-  dismissRef.current = onDismiss;
+  React.useEffect(() => {
+    dismissRef.current = onDismiss;
+  }, [onDismiss]);
 
   React.useEffect(() => {
     const timer = setTimeout(() => dismissRef.current(), duration);
