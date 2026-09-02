@@ -552,3 +552,33 @@ describe("SnapshotHistory", () => {
     });
   });
 });
+
+describe("SnapshotHistory - counts the server did not send", () => {
+  it("never renders 'undefined' when unfilteredCount is missing", async () => {
+    axios.get.mockResolvedValue({
+      data: {
+        // No unfilteredCount and no uniqueCount, which some responses omit.
+        snapshots: [
+          {
+            id: "snap-1",
+            startTime: "2023-01-01T10:00:00Z",
+            rootID: "k123",
+            retention: ["latest-1"],
+            summary: { size: 1024, files: 1, dirs: 1 },
+            pins: [],
+          },
+        ],
+      },
+    });
+
+    const { container } = renderWithProviders(<SnapshotHistory />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/1 snapshots/)).toBeInTheDocument();
+    });
+
+    expect(container.textContent).not.toContain("undefined");
+    // The "show all individual snapshots" toggle has no count to offer either.
+    expect(screen.queryByText(/individual snapshots/)).not.toBeInTheDocument();
+  });
+});

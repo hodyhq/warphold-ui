@@ -60,7 +60,7 @@ const supportedProviders = [
   },
   {
     provider: "_server",
-    description: "Kopia Repository Server",
+    description: "Repository server (Kopia protocol)",
     component: SetupRepositoryServer,
   },
   {
