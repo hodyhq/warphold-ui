@@ -1,7 +1,7 @@
 import React from "react";
-import Form from "react-bootstrap/Form";
-import Row from "react-bootstrap/Row";
+import { Row } from "../Layout";
 import { stateProperty } from "../../forms";
+import { Control } from "../../forms/FormField";
 import { LabelColumn } from "./LabelColumn";
 import { WideValueColumn } from "./WideValueColumn";
 import { EffectiveValue } from "./EffectiveValue";
@@ -14,9 +14,8 @@ export function ActionRowMode(component, action) {
         help="Essential (must succeed; default behavior), optional (failures are tolerated), or async (Kopia will start the action but not wait for it to finish)"
       />
       <WideValueColumn>
-        <Form.Control
+        <Control
           as="select"
-          size="sm"
           name={"policy." + action}
           onChange={component.handleChange}
           value={stateProperty(component, "policy." + action)}
@@ -24,7 +23,7 @@ export function ActionRowMode(component, action) {
           <option value="essential">must succeed</option>
           <option value="optional">ignore failures</option>
           <option value="async">run asynchronously, ignore failures</option>
-        </Form.Control>
+        </Control>
       </WideValueColumn>
       {EffectiveValue(component, action)}
     </Row>

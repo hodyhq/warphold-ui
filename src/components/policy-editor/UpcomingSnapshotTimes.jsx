@@ -8,7 +8,7 @@ export function UpcomingSnapshotTimes(resolved) {
   }
 
   if (resolved.schedulingError) {
-    return <p className="error">{resolved.schedulingError}</p>;
+    return <p className="text-bad">{resolved.schedulingError}</p>;
   }
 
   const times = resolved.upcomingSnapshotTimes;
@@ -19,9 +19,9 @@ export function UpcomingSnapshotTimes(resolved) {
 
   return (
     <>
-      <LabelColumn name-="Upcoming" />
+      <LabelColumn name="Upcoming" />
 
-      <ul data-testid="upcoming-snapshot-times">
+      <ul data-testid="upcoming-snapshot-times" className="m-0 list-disc pl-5 text-[13px] text-muted">
         {times.map((x) => (
           <li key={x}>
             {moment(x).format("L LT")} ({moment(x).fromNow()})

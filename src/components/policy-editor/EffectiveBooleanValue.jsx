@@ -1,22 +1,23 @@
 import React from "react";
-import Form from "react-bootstrap/Form";
 import { getDeepStateProperty } from "../../utils/deepstate";
 import { EffectiveValueColumn } from "./EffectiveValueColumn";
+import { Checkbox } from "../../design/components";
 
 export function EffectiveBooleanValue(component, policyField) {
   const dsp = getDeepStateProperty(component, "resolved.definition." + policyField, undefined);
 
   return (
     <EffectiveValueColumn>
-      <Form.Group>
-        <Form.Check
+      <div className="flex flex-col gap-[6px]">
+        <Checkbox
           data-testid={"effective-" + policyField}
-          size="sm"
-          checked={getDeepStateProperty(component, "resolved.effective." + policyField, undefined)}
+          checked={getDeepStateProperty(component, "resolved.effective." + policyField, undefined) ?? false}
           readOnly={true}
         />
-        <Form.Text data-testid={"definition-" + policyField}>{component.policyDefinitionPoint(dsp)}</Form.Text>
-      </Form.Group>
+        <span data-testid={"definition-" + policyField} className="text-[12px] text-dim">
+          {component.policyDefinitionPoint(dsp)}
+        </span>
+      </div>
     </EffectiveValueColumn>
   );
 }

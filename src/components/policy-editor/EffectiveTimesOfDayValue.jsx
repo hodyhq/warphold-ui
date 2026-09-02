@@ -1,5 +1,4 @@
 import React from "react";
-import Form from "react-bootstrap/Form";
 import { getDeepStateProperty } from "../../utils/deepstate";
 import { EffectiveValueColumn } from "./EffectiveValueColumn";
 import { TimesOfDayList } from "../../forms/TimesOfDayList";
@@ -7,14 +6,14 @@ import { TimesOfDayList } from "../../forms/TimesOfDayList";
 export function EffectiveTimesOfDayValue(component, policyField) {
   return (
     <EffectiveValueColumn>
-      <Form.Group>
+      <div className="flex flex-col gap-[6px]">
         {TimesOfDayList(component, "resolved.effective." + policyField)}
-        <Form.Text data-testid={"definition-" + policyField}>
+        <span data-testid={"definition-" + policyField} className="text-[12px] text-dim">
           {component.policyDefinitionPoint(
             getDeepStateProperty(component, "resolved.definition." + policyField, undefined),
           )}
-        </Form.Text>
-      </Form.Group>
+        </span>
+      </div>
     </EffectiveValueColumn>
   );
 }

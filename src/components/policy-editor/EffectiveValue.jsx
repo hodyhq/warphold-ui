@@ -1,22 +1,23 @@
 import React from "react";
-import Form from "react-bootstrap/Form";
 import { getDeepStateProperty } from "../../utils/deepstate";
 import { EffectiveValueColumn } from "./EffectiveValueColumn";
+import { Control } from "../../forms/FormField";
 
 export function EffectiveValue(component, policyField) {
   const dsp = getDeepStateProperty(component, "resolved.definition." + policyField, undefined);
 
   return (
     <EffectiveValueColumn>
-      <Form.Group>
-        <Form.Control
+      <div className="flex flex-col gap-[6px]">
+        <Control
           data-testid={"effective-" + policyField}
-          size="sm"
           value={getDeepStateProperty(component, "resolved.effective." + policyField, undefined)}
           readOnly={true}
         />
-        <Form.Text data-testid={"definition-" + policyField}>{component.policyDefinitionPoint(dsp)}</Form.Text>
-      </Form.Group>
+        <span data-testid={"definition-" + policyField} className="text-[12px] text-dim">
+          {component.policyDefinitionPoint(dsp)}
+        </span>
+      </div>
     </EffectiveValueColumn>
   );
 }

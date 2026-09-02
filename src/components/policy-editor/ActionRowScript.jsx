@@ -1,5 +1,5 @@
 import React from "react";
-import Row from "react-bootstrap/Row";
+import { Row } from "../Layout";
 import { OptionalFieldNoLabel } from "../../forms/OptionalFieldNoLabel";
 import { LabelColumn } from "./LabelColumn";
 import { WideValueColumn } from "./WideValueColumn";

@@ -1,9 +1,8 @@
 import React, { Component } from "react";
-import Col from "react-bootstrap/Col";
-import Row from "react-bootstrap/Row";
-import Form from "react-bootstrap/Form";
+import { Row } from "../Layout";
 import { handleChange, validateRequiredFields, stateProperty } from "../../forms";
 import { RequiredField } from "../../forms/RequiredField";
+import { Control, FormField } from "../../forms/FormField";
 import { OptionalField } from "../../forms/OptionalField";
 import { NotificationFormatSelector } from "./NotificationFormatSelector";
 import PropTypes from "prop-types";
@@ -32,19 +31,17 @@ export class WebHookNotificationMethod extends Component {
       <>
         <Row>
           {RequiredField(this, "URL Endpoint", "endpoint", { autoFocus: true })}
-          <Form.Group as={Col}>
-            <Form.Label className="required">HTTP Method</Form.Label>
-            <Form.Control
+          <FormField label="HTTP Method" required>
+            <Control
               as="select"
-              size="sm"
               name="method"
               onChange={(e) => this.handleChange(e)}
               value={stateProperty(this, "method")}
             >
               <option value="POST">POST</option>
               <option value="PUT">PUT</option>
-            </Form.Control>
-          </Form.Group>
+            </Control>
+          </FormField>
           {NotificationFormatSelector(this, "format")}
         </Row>
         <Row>

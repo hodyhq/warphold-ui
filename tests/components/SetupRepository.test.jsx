@@ -46,6 +46,9 @@ it("can create new repository when not initialized", async () => {
 
   fireEvent.click(getByTestId("submit-button"));
   await waitFor(() => serverMock.history.post.length == 1);
+
+  // The advanced block is only mounted once it is opened.
+  fireEvent.click(getByTestId("advanced-options"));
   fireEvent.change(await findByTestId(container, "control-encryption"), { target: { value: "e-baz" } });
   fireEvent.change(getByTestId("control-splitter"), { target: { value: "s-foo" } });
   fireEvent.change(getByTestId("control-hash"), { target: { value: "h-bar" } });
