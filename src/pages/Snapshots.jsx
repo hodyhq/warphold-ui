@@ -3,14 +3,15 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import axios from "axios";
 import moment from "moment";
 import React, { Component } from "react";
-import { Button, Eyebrow, Pill, Select, Spinner } from "../design/components";
+import { Button, Card, Eyebrow, Kpi, Pill, Select, Spinner } from "../design/components";
 import { Link } from "react-router";
 import KopiaTable from "../components/KopiaTable";
-import { compare, formatOwnerName, sizeDisplayName } from "../utils/formatutils";
+import { compare, formatDuration, formatOwnerName, sizeDisplayName } from "../utils/formatutils";
 import { errorAlert, redirect, sizeWithFailures } from "../utils/uiutil";
 import { policyEditorURL, sourceQueryStringParams } from "../utils/policyutil";
 import { CLIEquivalent } from "../components/CLIEquivalent";
 import { UIPreferencesContext } from "../contexts/UIPreferencesContext";
+import { relativeTime } from "../lib/format";
 
 /** The `Button` look, for the links that have to stay anchors. */
 const LINK_BUTTON =
@@ -22,6 +23,84 @@ const PRIMARY_LINK_BUTTON =
 
 const localSnapshots = "Local Snapshots";
 const allSnapshots = "All Snapshots";
+
+/** How many files a snapshot could not read. */
+function failureCount(snap) {
+  return snap?.rootEntry?.summ?.numFailed ?? 0;
+}
+
+/** A snapshot that finished and read everything it was asked to. */
+function isGood(snap) {
+  return Boolean(snap) && !snap.incomplete && failureCount(snap) === 0;
+}
+
+/** The most recent `lastSnapshot` across sources, optionally filtered. */
+function newestSnapshot(sources, accept = () => true) {
+  let best = null;
+  for (const s of sources) {
+    const snap = s.lastSnapshot;
+    if (!snap || !snap.startTime || !accept(snap)) {
+      continue;
+    }
+    if (!best || new Date(snap.startTime) > new Date(best.startTime)) {
+      best = snap;
+    }
+  }
+  return best;
+}
+
+/** Bytes held by the latest snapshot of every source. */
+function protectedBytes(sources) {
+  return sources.reduce((n, s) => n + (s.lastSnapshot?.stats?.totalSize ?? 0), 0);
+}
+
+/** The third KPI: how the most recent run went, or why it did not go well. */
+function lastRunKpi(snap) {
+  if (!snap) {
+    return <Kpi label="Last run" value="—" />;
+  }
+
+  const failed = failureCount(snap);
+  if (failed > 0) {
+    return (
+      <Kpi
+        label="Last run"
+        value={failed}
+        unit={failed === 1 ? "error" : "errors"}
+        tone="bad"
+        sub={relativeTime(snap.startTime)}
+      />
+    );
+  }
+
+  // An unfinished snapshot has no duration to show, so it says so instead.
+  const duration = snap.endTime ? formatDuration(snap.startTime, snap.endTime, true) : "";
+  return (
+    <Kpi
+      label="Last run"
+      value={duration || (snap.incomplete ? "running" : "ok")}
+      tone={snap.incomplete ? "warn" : "good"}
+      sub={relativeTime(snap.startTime)}
+    />
+  );
+}
+
+/** "38% · 1.2 GB of 3.1 GB", or just the bytes done when nothing is estimated. */
+function uploadSummary(upload, bytesStringBase2) {
+  const { done, total, percent } = uploadProgress(upload);
+  const bytes = sizeDisplayName(done, bytesStringBase2);
+  if (percent === null) {
+    return bytes;
+  }
+  return `${percent}% · ${bytes} of ${sizeDisplayName(total, bytesStringBase2)}`;
+}
+
+/** Where a running upload has got to. `percent` is null until an estimate exists. */
+function uploadProgress(upload) {
+  const done = (upload?.hashedBytes ?? 0) + (upload?.cachedBytes ?? 0);
+  const total = upload?.estimatedBytes ?? 0;
+  return { done, total, percent: total > 0 ? Math.min(100, Math.round((done * 100) / total)) : null };
+}
 
 export class Snapshots extends Component {
   constructor() {
@@ -358,13 +437,33 @@ export class Snapshots extends Component {
       },
     ];
 
+    const lastGood = newestSnapshot(sources, isGood);
+    const lastRun = newestSnapshot(sources);
+    const [storedValue, storedUnit] = sizeDisplayName(protectedBytes(sources), bytesStringBase2).split(" ");
+    const running = sources.find((x) => x.status === "UPLOADING");
+
     return (
-      <div className="flex flex-col gap-4">
-        <div className="flex items-end justify-between gap-6 border-b border-line-strong pb-3">
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-wrap items-end justify-between gap-6">
           <div>
-            <Eyebrow>This machine · {sources.length} sources</Eyebrow>
-            <h1 className="font-display m-0 mt-2 text-[36px] leading-none font-extrabold tracking-[-0.02em]">
-              Sources
+            <Eyebrow>
+              This machine · {sources.length} {sources.length === 1 ? "source" : "sources"}
+            </Eyebrow>
+            <h1
+              data-testid="snapshots-headline"
+              className="font-display m-0 mt-2 text-[48px] leading-[0.98] font-extrabold tracking-[-0.02em]"
+            >
+              {lastGood ? (
+                <>
+                  {/* `relativeTime` is the server's own wording; the headline
+                      carries the "since ..." itself, so the "ago" comes off. */}
+                  {relativeTime(lastGood.startTime).replace(/ ago$/, "")}
+                  <br />
+                  <span className="text-[24px] font-semibold text-ink-soft">since the last good snapshot</span>
+                </>
+              ) : (
+                <span className="text-[32px]">No snapshots yet</span>
+              )}
             </h1>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -396,6 +495,50 @@ export class Snapshots extends Component {
             </a>
           </div>
         </div>
+
+        <div
+          data-testid="snapshots-kpis"
+          className="grid grid-cols-[repeat(3,minmax(0,1fr))] gap-px border border-line bg-line"
+        >
+          <div className="bg-ground px-4 py-[14px]">
+            <Kpi label="Protected" value={storedValue} unit={storedUnit} />
+          </div>
+          <div className="bg-ground px-4 py-[14px]">
+            <Kpi label="Sources" value={sources.length} />
+          </div>
+          <div className="bg-ground px-4 py-[14px]">{lastRunKpi(lastRun)}</div>
+        </div>
+
+        {running && (
+          <Card data-testid="current-task" className="gap-[10px]">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span className="font-semibold">Backing up {running.source.path}</span>
+              <span className="flex items-center gap-3">
+                <span className="font-mono text-[12px] text-ember">
+                  {uploadSummary(running.upload, bytesStringBase2)}
+                </span>
+                <Button onClick={() => this.cancelSnapshot(running.source)}>Cancel</Button>
+              </span>
+            </div>
+            <div className="h-[6px] overflow-hidden rounded-[3px] bg-line">
+              <div
+                role="progressbar"
+                aria-label={"Backing up " + running.source.path}
+                aria-valuenow={uploadProgress(running.upload).percent ?? undefined}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                className="h-full bg-ember"
+                style={{ width: (uploadProgress(running.upload).percent ?? 0) + "%" }}
+              />
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span className="font-mono text-[12px] text-muted">
+                hashing {running.upload?.directory || running.source.path}
+              </span>
+              {running.currentTask && <Link to={"/tasks/" + running.currentTask}>Details</Link>}
+            </div>
+          </Card>
+        )}
 
         <KopiaTable data={sources} columns={columns} />
         <CLIEquivalent command={`snapshot list`} />
