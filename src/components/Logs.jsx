@@ -1,8 +1,31 @@
 import axios from "axios";
+import clsx from "clsx";
 import React, { Component } from "react";
-import Table from "react-bootstrap/Table";
 import { redirect } from "../utils/uiutil";
 import PropTypes from "prop-types";
+
+/**
+ * Log level to tone. The server sends the numeric zap levels, but the field is
+ * typed loosely enough that the names show up too, so both are mapped.
+ * Zap's numeric levels: -1 debug, 0 info, 1 warn, 2+ error/dpanic/panic/fatal.
+ */
+const LOG_LEVEL_CLASS = {
+  debug: "text-dim",
+  info: "text-ink",
+  warn: "font-bold text-warn",
+  warning: "font-bold text-warn",
+  error: "font-bold text-bad",
+};
+
+function toneForLevel(level) {
+  if (typeof level === "number") {
+    if (level <= -1) return "text-dim";
+    if (level === 0) return "text-ink";
+    if (level === 1) return "font-bold text-warn";
+    return "font-bold text-bad";
+  }
+  return LOG_LEVEL_CLASS[level];
+}
 
 export class Logs extends Component {
   constructor() {
@@ -110,18 +133,23 @@ export class Logs extends Component {
 
     if (logs) {
       return (
-        <div className="logs-table">
-          <Table size="sm" bordered hover>
-            <tbody>
-              {logs.map((v) => (
-                <tr key={v.ts + "-" + v.msg} className={"loglevel-" + v.level}>
-                  <td className="elide" title={this.fullLogTime(v.ts)}>
-                    {this.formatLogTime(v.ts)} {v.msg} {this.formatLogParams(v)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
+        <div
+          data-testid="task-logs"
+          className={clsx(
+            "overflow-auto border border-line bg-ground font-mono text-[11px] leading-[1.7]",
+            this.props.className || "max-h-[400px]",
+          )}
+        >
+          {logs.map((v) => (
+            <div
+              key={v.ts + "-" + v.msg}
+              data-log-level={v.level}
+              className={clsx("px-3 py-[2px] break-words whitespace-pre-wrap", toneForLevel(v.level) ?? "text-muted")}
+              title={this.fullLogTime(v.ts)}
+            >
+              {this.formatLogTime(v.ts)} {v.msg} {this.formatLogParams(v)}
+            </div>
+          ))}
           <div ref={this.messagesEndRef} />
         </div>
       );
@@ -133,4 +161,6 @@ export class Logs extends Component {
 
 Logs.propTypes = {
   taskID: PropTypes.string.isRequired,
+  /** Overrides the panel's default max height. */
+  className: PropTypes.string,
 };

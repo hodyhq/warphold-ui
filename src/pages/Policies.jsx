@@ -1,19 +1,15 @@
+import clsx from "clsx";
 import { faUserFriends } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import axios from "axios";
 import React, { Component } from "react";
-import Badge from "react-bootstrap/Badge";
-import Button from "react-bootstrap/Button";
-import Col from "react-bootstrap/Col";
-import Dropdown from "react-bootstrap/Dropdown";
-import Form from "react-bootstrap/Form";
-import Row from "react-bootstrap/Row";
+import { Button, Card, Eyebrow, Select } from "../design/components";
+import { Col, Row } from "../components/Layout";
 import { Link, useNavigate } from "react-router";
 import { handleChange } from "../forms";
 import { OptionalDirectory } from "../forms/OptionalDirectory";
-import KopiaTable from "../components/KopiaTable";
 import { CLIEquivalent } from "../components/CLIEquivalent";
-import { compare, formatOwnerName } from "../utils/formatutils";
+import { compare, formatMilliseconds, formatOwnerName } from "../utils/formatutils";
 import { redirect } from "../utils/uiutil";
 import { checkPolicyPath, policyEditorURL } from "../utils/policyutil";
 import PropTypes from "prop-types";
@@ -24,6 +20,65 @@ const allPolicies = "All Policies";
 const globalPolicy = "Global Policy";
 const perUserPolicies = "Per-User Policies";
 const perHostPolicies = "Per-Host Policies";
+
+/** "keep 24 h / 7 d / 4 w" from whichever retention buckets are set. */
+function retentionSummary(retention) {
+  const buckets = [
+    [retention?.keepLatest, "latest"],
+    [retention?.keepHourly, "h"],
+    [retention?.keepDaily, "d"],
+    [retention?.keepWeekly, "w"],
+    [retention?.keepMonthly, "m"],
+    [retention?.keepAnnual, "y"],
+  ].filter(([n]) => n !== undefined && n !== null);
+  return buckets.length ? "keep " + buckets.map(([n, unit]) => n + " " + unit).join(" / ") : "";
+}
+
+/** "every 1h", "daily at 2 times", "manual only" - however this policy runs. */
+function schedulingSummary(scheduling) {
+  if (!scheduling) {
+    return "";
+  }
+  if (scheduling.manual) {
+    return "manual only";
+  }
+  if (scheduling.intervalSeconds) {
+    return "every " + formatMilliseconds(scheduling.intervalSeconds * 1000, true);
+  }
+  if (scheduling.cron?.length) {
+    return "cron: " + scheduling.cron.join(", ");
+  }
+  if (scheduling.timeOfDay?.length) {
+    return scheduling.timeOfDay
+      .map((t) => (typeof t === "object" ? t.hour + ":" + String(t.min).padStart(2, "0") : t))
+      .join(", ");
+  }
+  return "";
+}
+
+/**
+ * The one line under a policy's name: what it keeps, when it runs, what it
+ * skips and how it compresses. Empty pieces drop out, and a policy that sets
+ * none of them is inheriting everything from its parent.
+ */
+export function policySummaryLine(policy) {
+  const bits = [
+    schedulingSummary(policy?.scheduling),
+    retentionSummary(policy?.retention),
+    policy?.files?.ignore?.length ? policy.files.ignore.length + " excludes" : "",
+    policy?.compression?.compressorName,
+  ].filter(Boolean);
+
+  return bits.length ? bits.join(" · ") : "inherits from parent";
+}
+
+/** How a policy's target reads as a card title. */
+function targetTitle(target) {
+  if (target.path) {
+    return target.path;
+  }
+  return target.host ? "All paths on " + target.host : "Global defaults";
+}
 
 export class PoliciesInternal extends Component {
   constructor() {
@@ -137,44 +192,6 @@ export class PoliciesInternal extends Component {
     });
   }
 
-  policySummary(policies) {
-    let bits = [];
-    /**
-     * Check if the object is empty
-     * @param {*} obj
-     * @returns true if the object is empty
-     */
-    function isEmptyObject(obj) {
-      return (
-        Object.getPrototypeOf(obj) === Object.prototype &&
-        Object.getOwnPropertyNames(obj).length === 0 &&
-        Object.getOwnPropertySymbols(obj).length === 0
-      );
-    }
-    /**
-     * Check if object has it's key as a property.
-     * However, if the object itself is a set of sets, it has to be checked by isEmptyObject()
-     * @param {*} obj
-     * @returns
-     */
-    function isEmpty(obj) {
-      for (var key in obj) {
-        if (Object.prototype.hasOwnProperty.call(obj, key)) return isEmptyObject(obj[key]);
-      }
-      return true;
-    }
-    for (let pol in policies.policy) {
-      if (!isEmpty(policies.policy[pol])) {
-        bits.push(
-          <Badge bg="policy-badge" key={pol}>
-            {pol}
-          </Badge>,
-        );
-      }
-    }
-    return bits;
-  }
-
   isGlobalPolicy(x) {
     return !x.target.userName && !x.target.host && !x.target.path;
   }
@@ -251,118 +268,97 @@ export class PoliciesInternal extends Component {
       return compare(l.target.path, r.target.path);
     });
 
-    const columns = [
-      {
-        header: "Username",
-        width: 100,
-        accessorFn: (x) => x.target.userName || "*",
-      },
-      {
-        header: "Host",
-        width: 100,
-        accessorFn: (x) => x.target.host || "*",
-      },
-      {
-        header: "Path",
-        accessorFn: (x) => x.target.path || "*",
-      },
-      {
-        header: "Defined",
-        cell: (x) => this.policySummary(x.row.original),
-      },
-      {
-        id: "edit",
-        header: "Actions",
-        width: 50,
-        cell: (x) => (
-          <Button
-            data-testid="edit-policy"
-            as={Link}
-            to={policyEditorURL(x.row.original.target)}
-            variant="primary"
-            size="sm"
-          >
-            Edit
-          </Button>
-        ),
-      },
-    ];
-
     return (
-      <>
+      <div className="flex flex-col gap-4">
+        <div>
+          <Eyebrow>Policies</Eyebrow>
+          <h1 className="font-display m-0 mt-2 text-[36px] leading-none font-extrabold tracking-[-0.02em]">
+            What gets kept
+          </h1>
+        </div>
         {!this.state.editorTarget && (
-          <div className="list-actions">
-            <Form onSubmit={this.editPolicyForPath}>
-              <Row>
-                <Col xs="auto">
-                  <Dropdown>
-                    <Dropdown.Toggle size="sm" variant="primary" id="dropdown-basic">
-                      <FontAwesomeIcon icon={faUserFriends} />
-                      &nbsp;{this.state.selectedOwner}
-                    </Dropdown.Toggle>
-
-                    <Dropdown.Menu>
-                      <Dropdown.Item onClick={() => this.selectOwner(applicablePolicies)}>
-                        {applicablePolicies}
-                      </Dropdown.Item>
-                      <Dropdown.Item onClick={() => this.selectOwner(localPolicies)}>{localPolicies}</Dropdown.Item>
-                      <Dropdown.Item onClick={() => this.selectOwner(allPolicies)}>{allPolicies}</Dropdown.Item>
-                      <Dropdown.Divider />
-                      <Dropdown.Item onClick={() => this.selectOwner(globalPolicy)}>{globalPolicy}</Dropdown.Item>
-                      <Dropdown.Item onClick={() => this.selectOwner(perUserPolicies)}>{perUserPolicies}</Dropdown.Item>
-                      <Dropdown.Item onClick={() => this.selectOwner(perHostPolicies)}>{perHostPolicies}</Dropdown.Item>
-                      <Dropdown.Divider />
-                      {uniqueOwners.map((v) => (
-                        <Dropdown.Item key={v} onClick={() => this.selectOwner(v)}>
-                          {v}
-                        </Dropdown.Item>
-                      ))}
-                    </Dropdown.Menu>
-                  </Dropdown>
-                </Col>
-                {this.state.selectedOwner === localPolicies ||
+          <form onSubmit={this.editPolicyForPath}>
+            <Row className="items-end">
+              <Col xs="auto">
+                <label className="flex items-center gap-2">
+                  <FontAwesomeIcon icon={faUserFriends} className="text-muted" aria-hidden="true" />
+                  <span className="sr-only">Show policies for</span>
+                  <Select
+                    className="py-[6px] text-[12px]"
+                    value={this.state.selectedOwner}
+                    onChange={(e) => this.selectOwner(e.target.value)}
+                  >
+                    <option value={applicablePolicies}>{applicablePolicies}</option>
+                    <option value={localPolicies}>{localPolicies}</option>
+                    <option value={allPolicies}>{allPolicies}</option>
+                    <option value={globalPolicy}>{globalPolicy}</option>
+                    <option value={perUserPolicies}>{perUserPolicies}</option>
+                    <option value={perHostPolicies}>{perHostPolicies}</option>
+                    {uniqueOwners.map((v) => (
+                      <option key={v} value={v}>
+                        {v}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+              </Col>
+              {(this.state.selectedOwner === localPolicies ||
                 this.state.selectedOwner === this.state.localSourceName ||
-                this.state.selectedOwner === applicablePolicies ? (
-                  <>
-                    <Col>
-                      {OptionalDirectory(this, null, "policyPath", {
-                        autoFocus: true,
-                        placeholder: "enter directory to find or set policy",
-                      })}
-                    </Col>
-                    <Col xs="auto">
-                      <Button
-                        disabled={!this.state.policyPath}
-                        size="sm"
-                        type="submit"
-                        onClick={this.editPolicyForPath}
-                      >
-                        Set Policy
-                      </Button>
-                    </Col>
-                  </>
-                ) : (
-                  <Col />
-                )}
-              </Row>
-            </Form>
-          </div>
+                this.state.selectedOwner === applicablePolicies) && (
+                <>
+                  <Col>
+                    {OptionalDirectory(this, null, "policyPath", {
+                      autoFocus: true,
+                      placeholder: "enter directory to find or set policy",
+                    })}
+                  </Col>
+                  <Col xs="auto">
+                    <Button disabled={!this.state.policyPath} type="submit" onClick={this.editPolicyForPath}>
+                      Set Policy
+                    </Button>
+                  </Col>
+                </>
+              )}
+            </Row>
+          </form>
         )}
 
         {policies.length > 0 ? (
-          <div>
-            <p>Found {policies.length} policies matching criteria.</p>
-            <KopiaTable data={policies} columns={columns} />
+          <div className="flex flex-col gap-3">
+            <p className="m-0 text-muted">Found {policies.length} policies matching criteria.</p>
+            {/* Cards, not a table: a policy is a paragraph about one target,
+                and there are few enough of them that paging never helps. */}
+            <div className="grid grid-cols-1 gap-[18px] md:grid-cols-2">
+              {policies.map((x) => (
+                <Card
+                  key={policyEditorURL(x.target)}
+                  data-testid="policy-card"
+                  className={clsx("gap-[10px]", this.isGlobalPolicy(x) && "md:col-span-2")}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="font-mono">{targetTitle(x.target)}</span>
+                    <Link data-testid="edit-policy" to={policyEditorURL(x.target)}>
+                      Edit
+                    </Link>
+                  </div>
+                  <div className="font-mono text-[12px] text-dim">
+                    {(x.target.userName || "*") + "@" + (x.target.host || "*")}
+                  </div>
+                  <div className="text-muted">{policySummaryLine(x.policy)}</div>
+                </Card>
+              ))}
+            </div>
           </div>
         ) : this.state.selectedOwner === localPolicies && this.state.policyPath ? (
-          <p>
-            No policy found for directory <code>{this.state.policyPath}</code>. Click <b>Set Policy</b> to define it.
+          <p className="text-muted">
+            No policy found for directory <code className="font-mono">{this.state.policyPath}</code>. Click{" "}
+            <b>Set Policy</b> to define it.
           </p>
         ) : (
-          <p>No policies found.</p>
+          <p className="text-muted">No policies found.</p>
         )}
         <CLIEquivalent command="policy list" />
-      </>
+      </div>
     );
   }
 }

@@ -270,7 +270,9 @@ export function targetReady(t: TargetInput): boolean {
   if (t.name.trim() === "") {
     return false;
   }
-  return t.kind === "filesystem" ? (t.path ?? "").trim() !== "" : Boolean(t.bucket?.trim() && t.key_id?.trim() && t.key);
+  return t.kind === "filesystem"
+    ? (t.path ?? "").trim() !== ""
+    : Boolean(t.bucket?.trim() && t.key_id?.trim() && t.key);
 }
 
 // Mounted only while it is open, so the credential fields are created empty

@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Tasks } from "../../src/pages/Tasks";
 import { UIPreferencesContext } from "../../src/contexts/UIPreferencesContext";
@@ -47,6 +47,8 @@ const renderTasks = () => {
  */
 beforeEach(() => {
   axiosMock = setupAPIMock();
+  // The running-task card mounts <Logs>, which polls this endpoint.
+  axiosMock.onGet(/\/api\/v1\/tasks\/[^/]+\/logs/).reply(200, { logs: [] });
   // Clear all previous mocks
   vi.clearAllMocks();
 
@@ -112,8 +114,11 @@ describe("Tasks component", () => {
     await waitFor(() => {
       expect(screen.getByRole("table")).toBeInTheDocument();
       expect(screen.getByText("Backing up /home/user")).toBeInTheDocument();
-      expect(screen.getByText("Repository maintenance")).toBeInTheDocument();
     });
+
+    // The running one is a card above the table, not a row in it.
+    expect(screen.getByTestId("running-task")).toHaveTextContent("Maintenance Repository maintenance");
+    expect(screen.getByRole("table").querySelectorAll("tbody tr")).toHaveLength(1);
   });
 
   test("filters tasks by status", async () => {
@@ -147,21 +152,17 @@ describe("Tasks component", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Task 1")).toBeInTheDocument();
-      expect(screen.getByText("Task 2")).toBeInTheDocument();
-      expect(screen.getByText("Task 3")).toBeInTheDocument();
     });
+    // The running one leads as a card; the finished ones are rows.
+    expect(screen.getByTestId("running-task")).toHaveTextContent("Task 2");
+    expect(screen.getByText("Task 3")).toBeInTheDocument();
 
-    // Click on the status dropdown
-    const statusDropdown = screen.getByText("Status: All");
-    await userEvent.click(statusDropdown);
+    await userEvent.selectOptions(screen.getByLabelText("Status"), "Running");
 
-    // Select "Running" status
-    const runningOption = screen.getByText("Running");
-    await userEvent.click(runningOption);
-
-    // Should only show running tasks
+    // Filtering to Running leaves only the card - a task is never in both views.
     expect(screen.queryByText("Task 1")).not.toBeInTheDocument();
-    expect(screen.getByText("Task 2")).toBeInTheDocument();
+    expect(screen.getByTestId("running-task")).toHaveTextContent("Task 2");
+    expect(screen.getByRole("table")).not.toHaveTextContent("Task 2");
     expect(screen.queryByText("Task 3")).not.toBeInTheDocument();
   });
 
@@ -200,15 +201,7 @@ describe("Tasks component", () => {
       expect(screen.getByText("Restore task")).toBeInTheDocument();
     });
 
-    // Click on the kind dropdown
-    const kindDropdown = screen.getByText("Kind: All");
-    await userEvent.click(kindDropdown);
-
-    // Select "Snapshot" kind - use getAllByText since there are multiple elements
-    const snapshotOptions = screen.getAllByText("Snapshot");
-    // Click on the dropdown option (not the table content)
-    const dropdownOption = snapshotOptions.find((el) => el.classList.contains("dropdown-item"));
-    await userEvent.click(dropdownOption);
+    await userEvent.selectOptions(screen.getByLabelText("Kind"), "Snapshot");
 
     // Should only show snapshot tasks
     expect(screen.getByText("Snapshot task")).toBeInTheDocument();
@@ -291,25 +284,17 @@ describe("Tasks component", () => {
     renderTasks();
 
     await waitFor(() => {
-      expect(screen.getAllByText("Backing up files")).toHaveLength(3);
+      // One finished row in the table; the two running ones are cards above it.
+      expect(screen.getByRole("table").querySelectorAll("tbody tr")).toHaveLength(1);
     });
+    expect(screen.getAllByTestId("running-task")).toHaveLength(2);
 
-    // Set status filter to "Running"
-    const statusDropdown = screen.getByText("Status: All");
-    await userEvent.click(statusDropdown);
-    await userEvent.click(screen.getByText("Running"));
+    await userEvent.selectOptions(screen.getByLabelText("Status"), "Running");
+    await userEvent.selectOptions(screen.getByLabelText("Kind"), "Snapshot");
 
-    // Set kind filter to "Snapshot"
-    const kindDropdown = screen.getByText("Kind: All");
-    await userEvent.click(kindDropdown);
-    await userEvent.click(screen.getAllByText("Snapshot")[0]); // Use getAllByText and select the first one
-
-    // Should only show task2 (Snapshot + Running)
-    expect(screen.getAllByText("Backing up files")).toHaveLength(1);
-    const table = screen.getByRole("table");
-    // Count data rows (excluding header row)
-    const rows = table.querySelectorAll("tbody tr");
-    expect(rows).toHaveLength(1);
+    // Only task2 matches (Snapshot + Running), and it is a card, not a row.
+    expect(screen.getAllByTestId("running-task")).toHaveLength(1);
+    expect(screen.getByRole("table").querySelectorAll("tbody tr")).toHaveLength(0);
   });
 
   test("handles API error gracefully", async () => {
@@ -355,8 +340,9 @@ describe("Tasks component", () => {
 
     renderTasks();
 
+    // It starts as the running card...
     await waitFor(() => {
-      expect(screen.getByText("Initial task")).toBeInTheDocument();
+      expect(screen.getByTestId("running-task")).toHaveTextContent("Initial task");
     });
 
     // Update mock for next request
@@ -365,10 +351,12 @@ describe("Tasks component", () => {
     // Trigger the interval callback manually
     await triggerIntervals();
 
-    // Wait for the new task to appear
+    // ...and once it finishes it drops into the table, with the new running
+    // task taking over the card.
     await waitFor(() => {
-      expect(screen.getByText("New task")).toBeInTheDocument();
+      expect(screen.getByRole("table")).toHaveTextContent("Initial task");
     });
+    expect(screen.getByTestId("running-task")).toHaveTextContent("New task");
   });
 
   test("task links are rendered with correct structure", async () => {
@@ -397,6 +385,134 @@ describe("Tasks component", () => {
       // Since the test data uses 2023-01-01, it will show something like "3 years ago"
       const linkText = links[0].textContent;
       expect(linkText).toMatch(/\d+ years? ago/);
+    });
+  });
+
+  describe("running task card", () => {
+    const runningTask = (counters) => ({
+      id: "task-running",
+      kind: "Snapshot",
+      description: "Backing up /home/user",
+      status: "RUNNING",
+      startTime: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
+      progressInfo: "hashing /home/user/Projects",
+      counters,
+    });
+
+    test("shows progress from the byte counters", async () => {
+      axiosMock.onGet("/api/v1/tasks").reply(200, {
+        tasks: [
+          runningTask({
+            "Processed Bytes": { value: 1_200_000_000, units: "bytes" },
+            "Estimated Bytes": { value: 3_100_000_000, units: "bytes" },
+          }),
+        ],
+      });
+
+      renderTasks();
+
+      const card = await screen.findByTestId("running-task");
+      expect(card).toHaveTextContent("Snapshot Backing up /home/user");
+      expect(card).toHaveTextContent("39%");
+      expect(card).toHaveTextContent("elapsed");
+      expect(screen.getByRole("progressbar", { name: "Progress of Backing up /home/user" })).toHaveAttribute(
+        "aria-valuenow",
+        "39",
+      );
+    });
+
+    test("shows a zero-length bar before the first byte is processed", async () => {
+      axiosMock.onGet("/api/v1/tasks").reply(200, {
+        tasks: [
+          runningTask({
+            "Processed Bytes": { value: 0, units: "bytes" },
+            "Estimated Bytes": { value: 3_100_000_000, units: "bytes" },
+          }),
+        ],
+      });
+
+      renderTasks();
+
+      const card = await screen.findByTestId("running-task");
+      expect(card).toHaveTextContent("0%");
+      expect(screen.getByRole("progressbar", { name: "Progress of Backing up /home/user" })).toHaveAttribute(
+        "aria-valuenow",
+        "0",
+      );
+    });
+
+    test("shows no bar when the estimate is missing", async () => {
+      axiosMock.onGet("/api/v1/tasks").reply(200, {
+        tasks: [runningTask({ "Processed Bytes": { value: 12, units: "bytes" } })],
+      });
+
+      renderTasks();
+
+      await screen.findByTestId("running-task");
+      expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    });
+
+    test("falls back to the server's progress line when there are no byte counters", async () => {
+      axiosMock.onGet("/api/v1/tasks").reply(200, { tasks: [runningTask({})] });
+
+      renderTasks();
+
+      const card = await screen.findByTestId("running-task");
+      expect(card).toHaveTextContent("hashing /home/user/Projects");
+      expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    });
+
+    test("tails the task log", async () => {
+      // The catch-all logs handler from beforeEach is registered first and would
+      // win, so this test starts from a clean set of handlers.
+      axiosMock.resetHandlers();
+      axiosMock.onGet("/api/v1/tasks/task-running/logs").reply(200, {
+        logs: [{ ts: 1672531200, level: "info", msg: "snapshot started" }],
+      });
+      axiosMock.onGet("/api/v1/tasks").reply(200, { tasks: [runningTask({})] });
+
+      renderTasks();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("task-logs")).toHaveTextContent("snapshot started");
+      });
+    });
+
+    test("the kind filter applies to the cards, the status filter does not", async () => {
+      axiosMock.onGet("/api/v1/tasks").reply(200, {
+        tasks: [
+          runningTask({}),
+          { ...runningTask({}), id: "task-maint", kind: "Maintenance", description: "Compacting indexes" },
+        ],
+      });
+
+      renderTasks();
+
+      await waitFor(() => expect(screen.getAllByTestId("running-task")).toHaveLength(2));
+
+      // Status is about the table, so the cards are untouched by it.
+      await userEvent.selectOptions(screen.getByLabelText("Status"), "Failed");
+      expect(screen.getAllByTestId("running-task")).toHaveLength(2);
+
+      // Kind narrows what "happening now" means, so the cards follow.
+      await userEvent.selectOptions(screen.getByLabelText("Kind"), "Maintenance");
+      const cards = screen.getAllByTestId("running-task");
+      expect(cards).toHaveLength(1);
+      expect(cards[0]).toHaveTextContent("Compacting indexes");
+    });
+
+    test("cancels the task from the card", async () => {
+      axiosMock.onGet("/api/v1/tasks").reply(200, { tasks: [runningTask({})] });
+      axiosMock.onPost("/api/v1/tasks/task-running/cancel").reply(200, {});
+
+      renderTasks();
+
+      const card = await screen.findByTestId("running-task");
+      await userEvent.click(within(card).getByRole("button", { name: /Cancel/ }));
+
+      await waitFor(() => {
+        expect(axiosMock.history.post.some((r) => r.url === "/api/v1/tasks/task-running/cancel")).toBe(true);
+      });
     });
   });
 });

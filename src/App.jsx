@@ -1,9 +1,7 @@
-import "bootstrap/dist/css/bootstrap.min.css";
-import "./css/Theme.css";
 import "./css/App.css";
 import axios from "axios";
+import clsx from "clsx";
 import { React, Component } from "react";
-import { Navbar, Nav, Container } from "react-bootstrap";
 import { BrowserRouter as Router, NavLink, Navigate, Route, Routes } from "react-router";
 import { Policy } from "./pages/Policy";
 import { Preferences } from "./pages/Preferences";
@@ -16,8 +14,22 @@ import { SnapshotCreate } from "./pages/SnapshotCreate";
 import { SnapshotDirectory } from "./pages/SnapshotDirectory";
 import { SnapshotHistory } from "./pages/SnapshotHistory";
 import { SnapshotRestore } from "./pages/SnapshotRestore";
+import { Mark } from "./pages/fleet/Mark";
 import { AppContext } from "./contexts/AppContext";
 import { UIPreferenceProvider } from "./contexts/UIPreferencesContext";
+
+/**
+ * One nav entry. `requiresRepository` marks the tabs that only mean anything
+ * once a repository is connected - Repository and Preferences stay reachable
+ * so a disconnected install can be fixed from the UI.
+ */
+const NAV = [
+  { to: "/snapshots", label: "Snapshots", testid: "tab-snapshots", requiresRepository: true },
+  { to: "/policies", label: "Policies", testid: "tab-policies", requiresRepository: true },
+  { to: "/tasks", label: "Tasks", testid: "tab-tasks", requiresRepository: true },
+  { to: "/repo", label: "Repository", testid: "tab-repo" },
+  { to: "/preferences", label: "Preferences", testid: "tab-preferences" },
+];
 
 export default class App extends Component {
   constructor() {
@@ -58,11 +70,9 @@ export default class App extends Component {
     axios
       .get("/api/v1/repo/status")
       .then((result) => {
+        this.setState({ isRepositoryConnected: result.data.connected });
         if (result.data.description) {
-          this.setState({
-            repoDescription: result.data.description,
-            isRepositoryConnected: result.data.connected,
-          });
+          this.setState({ repoDescription: result.data.description });
         }
       })
       .catch((_) => {
@@ -114,82 +124,73 @@ export default class App extends Component {
       <Router>
         <AppContext value={this}>
           <UIPreferenceProvider initalValue={uiPrefs}>
-            <Navbar expand="sm" variant="light">
-              <Navbar.Brand href="/">
-                <img src="/warphold.svg" className="App-logo" alt="logo" />
-              </Navbar.Brand>
-              <Navbar.Toggle aria-controls="basic-navbar-nav" />
-              <Navbar.Collapse id="basic-navbar-nav">
-                <Nav className="me-auto">
-                  <span className="d-inline-block" data-toggle="tooltip" title="Repository is not connected">
-                    <NavLink
-                      data-testid="tab-snapshots"
-                      title=""
-                      data-title="Snapshots"
-                      className={isRepositoryConnected ? "nav-link" : "nav-link disabled"}
-                      to="/snapshots"
-                    >
-                      Snapshots
-                    </NavLink>
-                  </span>
-                  <span className="d-inline-block" data-toggle="tooltip" title="Repository is not connected">
-                    <NavLink
-                      data-testid="tab-policies"
-                      title=""
-                      data-title="Policies"
-                      className={isRepositoryConnected ? "nav-link" : "nav-link disabled"}
-                      to="/policies"
-                    >
-                      Policies
-                    </NavLink>
-                  </span>
-                  <span className="d-inline-block" data-toggle="tooltip" title="Repository is not connected">
-                    <NavLink
-                      data-testid="tab-tasks"
-                      title=""
-                      data-title="Tasks"
-                      className={isRepositoryConnected ? "nav-link" : "nav-link disabled"}
-                      to="/tasks"
-                    >
-                      Tasks
-                      <>{runningTaskCount > 0 && <>({runningTaskCount})</>}</>
-                    </NavLink>
-                  </span>
-                  <NavLink data-testid="tab-repo" data-title="Repository" className="nav-link" to="/repo">
-                    Repository
+            <div className="wh flex min-h-screen flex-col">
+              <header className="flex flex-wrap items-center gap-9 px-12 py-[22px]">
+                <NavLink to="/snapshots" className="flex items-center gap-[10px] text-inherit hover:text-inherit">
+                  <Mark />
+                  <span className="font-display text-[16px] font-extrabold tracking-[0.02em]">WARPHOLD</span>
+                </NavLink>
+                <nav className="flex flex-wrap gap-[22px]">
+                  {NAV.map((item) => {
+                    const locked = item.requiresRepository && !isRepositoryConnected;
+                    return (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        data-testid={item.testid}
+                        data-title={item.label}
+                        // Bootstrap's `.disabled` link class is gone; the state
+                        // it stood for is kept on the class list because the tab
+                        // is still shown, just not usable, until a repository is
+                        // connected. A locked tab is also taken out of the tab
+                        // order and its activation cancelled, so the pointer and
+                        // the keyboard reach the same dead end.
+                        className={({ isActive }) =>
+                          clsx(
+                            "border-b-2 pb-1 text-[12px] font-medium tracking-[0.04em] uppercase",
+                            locked
+                              ? "disabled pointer-events-none border-transparent text-dim"
+                              : isActive
+                                ? "border-ember text-ink"
+                                : "border-transparent text-muted hover:text-ink",
+                          )
+                        }
+                        aria-disabled={locked ? "true" : undefined}
+                        tabIndex={locked ? -1 : undefined}
+                        onClick={locked ? (e) => e.preventDefault() : undefined}
+                        title={locked ? "Repository is not connected" : undefined}
+                      >
+                        {item.label}
+                        {item.testid === "tab-tasks" && runningTaskCount > 0 && <> ({runningTaskCount})</>}
+                      </NavLink>
+                    );
+                  })}
+                </nav>
+                <div className="grow" />
+                {this.state.repoDescription && (
+                  <NavLink to="/repo" className="font-mono text-[12px] text-dim hover:text-ink">
+                    {this.state.repoDescription}
                   </NavLink>
-                  <NavLink
-                    data-testid="tab-preferences"
-                    data-title="Preferences"
-                    className="nav-link"
-                    to="/preferences"
-                  >
-                    Preferences
-                  </NavLink>
-                </Nav>
-              </Navbar.Collapse>
-            </Navbar>
+                )}
+              </header>
 
-            <Container fluid>
-              <NavLink to="/repo" style={{ color: "inherit", textDecoration: "inherit" }}>
-                <h5 className="mb-4">{this.state.repoDescription}</h5>
-              </NavLink>
-
-              <Routes>
-                <Route path="snapshots" element={<Snapshots />} />
-                <Route path="snapshots/new" element={<SnapshotCreate />} />
-                <Route path="snapshots/single-source/" element={<SnapshotHistory />} />
-                <Route path="snapshots/dir/:oid/restore" element={<SnapshotRestore />} />
-                <Route path="snapshots/dir/:oid" element={<SnapshotDirectory />} />
-                <Route path="policies/edit/" element={<Policy />} />
-                <Route path="policies" element={<Policies />} />
-                <Route path="tasks/:tid" element={<Task />} />
-                <Route path="tasks" element={<Tasks />} />
-                <Route path="repo" element={<Repository />} />
-                <Route path="preferences" element={<Preferences />} />
-                <Route path="/" element={<Navigate to="/snapshots" />} />
-              </Routes>
-            </Container>
+              <main className="min-h-0 grow px-12 pt-[22px] pb-8">
+                <Routes>
+                  <Route path="snapshots" element={<Snapshots />} />
+                  <Route path="snapshots/new" element={<SnapshotCreate />} />
+                  <Route path="snapshots/single-source/" element={<SnapshotHistory />} />
+                  <Route path="snapshots/dir/:oid/restore" element={<SnapshotRestore />} />
+                  <Route path="snapshots/dir/:oid" element={<SnapshotDirectory />} />
+                  <Route path="policies/edit/" element={<Policy />} />
+                  <Route path="policies" element={<Policies />} />
+                  <Route path="tasks/:tid" element={<Task />} />
+                  <Route path="tasks" element={<Tasks />} />
+                  <Route path="repo" element={<Repository />} />
+                  <Route path="preferences" element={<Preferences />} />
+                  <Route path="/" element={<Navigate to="/snapshots" />} />
+                </Routes>
+              </main>
+            </div>
           </UIPreferenceProvider>
         </AppContext>
       </Router>

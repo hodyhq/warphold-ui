@@ -14,7 +14,7 @@ import { Overview } from "./pages/fleet/Overview";
 import { Settings } from "./pages/fleet/Settings";
 import { Targets } from "./pages/fleet/Targets";
 import { Templates } from "./pages/fleet/Templates";
-import { Placeholder } from "./pages/fleet/Placeholder";
+import { AgentHome } from "./pages/agent/AgentHome";
 
 const NAV: NavItem[] = [
   { to: "/fleet", label: "Overview" },
@@ -112,14 +112,7 @@ function FleetRoutes({ activated, onActivated }: { activated: boolean; onActivat
 function AgentRoutes() {
   return (
     <Routes>
-      <Route
-        path="/agent"
-        element={
-          <div className="p-12">
-            <Placeholder title="This device" note="The agent screen lands in a later task." />
-          </div>
-        }
-      />
+      <Route path="/agent" element={<AgentHome />} />
       <Route path="*" element={<Navigate to="/agent" replace />} />
     </Routes>
   );

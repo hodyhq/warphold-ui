@@ -153,7 +153,7 @@ describe("Templates", () => {
 
   it("shows the server's policy rejection beside the editor", async () => {
     updateTemplate.mockRejectedValue({
-      response: { status: 400, data: { error: "json: unknown field \"retenshun\"" } },
+      response: { status: 400, data: { error: 'json: unknown field "retenshun"' } },
     });
     render(<Templates />);
     await screen.findByText("used by Laptops");

@@ -1,12 +1,11 @@
 import React from "react";
-import Form from "react-bootstrap/Form";
 import { valueToNumber, stateProperty } from ".";
+import { Control } from "./FormField";
 
 export function LogDetailSelector(component, name) {
   return (
-    <Form.Control
+    <Control
       as="select"
-      size="sm"
       name={name}
       onChange={(e) => component.handleChange(e, valueToNumber)}
       value={stateProperty(component, name)}
@@ -23,6 +22,6 @@ export function LogDetailSelector(component, name) {
       <option value="8">8</option>
       <option value="9">9</option>
       <option value="10">10 - maximum details</option>
-    </Form.Control>
+    </Control>
   );
 }

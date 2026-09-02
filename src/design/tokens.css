@@ -1,16 +1,19 @@
 /*
  * Kinetic design tokens (values from docs/superpowers/design/Main.dc.html).
  *
- * Tailwind v4 is imported WITHOUT preflight: the single-user pages still ship
- * Bootstrap until Task 15 and preflight's reset visibly breaks them. Likewise
- * the ground/ink/body-font rules are scoped to the `.wh` root class instead of
- * `body`, so the fleet UI opts in and the Bootstrap pages keep their theme.
+ * Tailwind v4 is imported WITHOUT preflight, so browser defaults plus the
+ * app's own `css/index.css` and `css/App.css` are the base layer. The
+ * ground/ink/body-font rules stay scoped to the `.wh` root class rather than
+ * `body`, so both shells opt in explicitly and nothing outside them is
+ * repainted.
  *
- * The utilities are imported UNLAYERED on purpose: Bootstrap's reboot is
- * unlayered too, and unlayered rules beat any cascade layer, so layered
- * utilities would lose to reboot (e.g. `button { text-transform: none }`
- * cancelling `uppercase`). Task 15 drops Bootstrap; the layer can come back
- * then.
+ * The utilities are imported UNLAYERED for that reason: those base
+ * stylesheets are unlayered too, and unlayered rules beat any cascade layer,
+ * so layered utilities would lose to them - `code { font-family: ... }` in
+ * index.css would win over a `font-mono` on a `<code>`. Layering the
+ * utilities means adopting preflight and moving those two stylesheets into
+ * `layer(base)` with it; that is a change of its own, not a side effect of
+ * dropping Bootstrap.
  */
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css";

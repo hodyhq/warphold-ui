@@ -24,7 +24,7 @@ export function sizeWithFailures(size, summ, bytesStringBase2) {
   return (
     <span>
       {sizeDisplayName(size, bytesStringBase2)}&nbsp;
-      <FontAwesomeIcon color="red" icon={faExclamationTriangle} title={caption} />
+      <FontAwesomeIcon className="text-bad" icon={faExclamationTriangle} title={caption} />
     </span>
   );
 }

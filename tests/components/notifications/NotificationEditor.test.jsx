@@ -86,27 +86,20 @@ describe("NotificationEditor", () => {
       expect(screen.getByText(/You don't have any notification profiles defined/)).toBeInTheDocument();
     });
 
-    expect(screen.getByText("Create New Profile")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "New E-mail profile" })).toBeInTheDocument();
   });
 
-  it("shows dropdown options for creating new profiles", async () => {
+  it("offers a button per notification method", async () => {
     serverMock.onGet("/api/v1/notificationProfiles").reply(200, []);
 
     render(<NotificationEditor />);
 
     await waitFor(() => {
-      expect(screen.getByText("Create New Profile")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "New E-mail profile" })).toBeInTheDocument();
     });
 
-    // Click dropdown to show options
-    const dropdown = screen.getByText("Create New Profile");
-    fireEvent.click(dropdown);
-
-    await waitFor(() => {
-      expect(screen.getByText("E-mail")).toBeInTheDocument();
-      expect(screen.getByText("Pushover")).toBeInTheDocument();
-      expect(screen.getByText("Webhook")).toBeInTheDocument();
-    });
+    expect(screen.getByRole("button", { name: "New Pushover profile" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "New Webhook profile" })).toBeInTheDocument();
   });
 
   it("opens editor when creating new email profile", async () => {
@@ -115,18 +108,10 @@ describe("NotificationEditor", () => {
     render(<NotificationEditor />);
 
     await waitFor(() => {
-      expect(screen.getByText("Create New Profile")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "New E-mail profile" })).toBeInTheDocument();
     });
 
-    // Click dropdown
-    const dropdown = screen.getByText("Create New Profile");
-    fireEvent.click(dropdown);
-
-    // Click E-mail option
-    await waitFor(() => {
-      const emailOption = screen.getByText("E-mail");
-      fireEvent.click(emailOption);
-    });
+    fireEvent.click(screen.getByRole("button", { name: "New E-mail profile" }));
 
     await waitFor(() => {
       expect(screen.getByText("New Notification Profile")).toBeInTheDocument();
@@ -164,20 +149,10 @@ describe("NotificationEditor", () => {
     render(<NotificationEditor />);
 
     await waitFor(() => {
-      expect(screen.getByText("Create New Profile")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "New E-mail profile" })).toBeInTheDocument();
     });
 
-    // Create new email profile
-    const dropdown = screen.getByText("Create New Profile");
-    fireEvent.click(dropdown);
-
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "E-mail" })).toBeInTheDocument();
-    });
-
-    // Use the dropdown item specifically
-    const emailDropdownOption = screen.getByRole("button", { name: "E-mail" });
-    fireEvent.click(emailDropdownOption);
+    fireEvent.click(screen.getByRole("button", { name: "New E-mail profile" }));
 
     await waitFor(() => {
       expect(screen.getByText("New Notification Profile")).toBeInTheDocument();
@@ -200,17 +175,10 @@ describe("NotificationEditor", () => {
     render(<NotificationEditor />);
 
     await waitFor(() => {
-      expect(screen.getByText("Create New Profile")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "New E-mail profile" })).toBeInTheDocument();
     });
 
-    // Create new email profile
-    const dropdown = screen.getByText("Create New Profile");
-    fireEvent.click(dropdown);
-
-    await waitFor(() => {
-      const emailOption = screen.getByText("E-mail");
-      fireEvent.click(emailOption);
-    });
+    fireEvent.click(screen.getByRole("button", { name: "New E-mail profile" }));
 
     // Simulate the component being in a state where validation passes
     // This would require more complex setup with the email editor component
@@ -429,20 +397,10 @@ describe("NotificationEditor", () => {
     render(<NotificationEditor />);
 
     await waitFor(() => {
-      expect(screen.getByText("Create New Profile")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "New E-mail profile" })).toBeInTheDocument();
     });
 
-    // Create new email profile
-    const dropdown = screen.getByText("Create New Profile");
-    fireEvent.click(dropdown);
-
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "E-mail" })).toBeInTheDocument();
-    });
-
-    // Use the dropdown item specifically
-    const emailDropdownOption = screen.getByRole("button", { name: "E-mail" });
-    fireEvent.click(emailDropdownOption);
+    fireEvent.click(screen.getByRole("button", { name: "New E-mail profile" }));
 
     await waitFor(() => {
       expect(screen.getByText("New Notification Profile")).toBeInTheDocument();

@@ -205,11 +205,11 @@ describe("Form Field Components", () => {
       const { container } = render(<div>{RequiredField(component, "Test Label", "test")}</div>);
 
       const input = container.querySelector('input[name="test"]');
-      expect(input.classList.contains("is-invalid")).toBe(true);
+      expect(input).toHaveAttribute("aria-invalid", "true");
 
       const label = container.querySelector("label");
       expect(label.classList.contains("required")).toBe(true);
-      expect(label.textContent).toBe("Test Label");
+      expect(label.textContent).toContain("Test Label");
     });
 
     it("should not show validation error when filled", () => {
@@ -217,7 +217,7 @@ describe("Form Field Components", () => {
       const { container } = render(<div>{RequiredField(component, "Test Label", "test")}</div>);
 
       const input = container.querySelector('input[name="test"]');
-      expect(input.classList.contains("is-invalid")).toBe(false);
+      expect(input).not.toHaveAttribute("aria-invalid");
     });
   });
 
@@ -226,7 +226,7 @@ describe("Form Field Components", () => {
       const { container } = render(<div>{OptionalField(component, "Optional Label", "optional")}</div>);
 
       const input = container.querySelector('input[name="optional"]');
-      expect(input.classList.contains("is-invalid")).toBe(false);
+      expect(input).not.toHaveAttribute("aria-invalid");
 
       const label = container.querySelector("label");
       expect(label.classList.contains("required")).toBe(false);
@@ -248,7 +248,7 @@ describe("Form Field Components", () => {
       const { container } = render(<div>{RequiredNumberField(component, "Number", "num")}</div>);
 
       const input = container.querySelector('input[name="num"]');
-      expect(input.classList.contains("is-invalid")).toBe(true);
+      expect(input).toHaveAttribute("aria-invalid", "true");
     });
 
     it("should not show error for valid numbers", () => {
@@ -256,7 +256,7 @@ describe("Form Field Components", () => {
       const { container } = render(<div>{RequiredNumberField(component, "Number", "num")}</div>);
 
       const input = container.querySelector('input[name="num"]');
-      expect(input.classList.contains("is-invalid")).toBe(false);
+      expect(input).not.toHaveAttribute("aria-invalid");
     });
   });
 
@@ -266,7 +266,7 @@ describe("Form Field Components", () => {
       const { container } = render(<div>{OptionalNumberField(component, "Optional Number", "optNum")}</div>);
 
       const input = container.querySelector('input[name="optNum"]');
-      expect(input.classList.contains("is-invalid")).toBe(true);
+      expect(input).toHaveAttribute("aria-invalid", "true");
     });
 
     it("should allow empty values", () => {
@@ -274,7 +274,7 @@ describe("Form Field Components", () => {
       const { container } = render(<div>{OptionalNumberField(component, "Optional Number", "optNum")}</div>);
 
       const input = container.querySelector('input[name="optNum"]');
-      expect(input.classList.contains("is-invalid")).toBe(false);
+      expect(input).not.toHaveAttribute("aria-invalid");
     });
   });
 
@@ -369,7 +369,7 @@ describe("Form Field Components", () => {
       const { container } = render(<div>{RequiredDirectory(component, "Required Dir", "dir")}</div>);
 
       const input = container.querySelector('input[name="dir"]');
-      expect(input.classList.contains("is-invalid")).toBe(true);
+      expect(input).toHaveAttribute("aria-invalid", "true");
 
       const label = container.querySelector("label");
       expect(label.classList.contains("required")).toBe(true);
@@ -379,7 +379,7 @@ describe("Form Field Components", () => {
       const { container } = render(<div>{OptionalDirectory(component, "Optional Dir", "dir")}</div>);
 
       const input = container.querySelector('input[name="dir"]');
-      expect(input.classList.contains("is-invalid")).toBe(false);
+      expect(input).not.toHaveAttribute("aria-invalid");
     });
 
     it("should not show button when kopiaUI is not available", () => {

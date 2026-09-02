@@ -1,9 +1,7 @@
 import axios from "axios";
 import React, { Component } from "react";
-import Button from "react-bootstrap/Button";
-import Col from "react-bootstrap/Col";
-import Form from "react-bootstrap/Form";
-import Row from "react-bootstrap/Row";
+import { Button, Eyebrow } from "../design/components";
+import { Col, Row } from "../components/Layout";
 import { useNavigate, useLocation } from "react-router";
 import { handleChange } from "../forms";
 import { PolicyEditor } from "../components/policy-editor/PolicyEditor";
@@ -164,34 +162,34 @@ class SnapshotCreateInternal extends Component {
 
   render() {
     return (
-      <>
-        <Form.Group>
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-3 border-b border-line-strong pb-3">
           <GoBackButton />
-        </Form.Group>
-        <br />
-        <h4>New Snapshot</h4>
-        <br />
-        <Row>
+          <div>
+            <Eyebrow>Snapshots</Eyebrow>
+            <h1 className="font-display m-0 text-[24px] leading-none font-extrabold tracking-[-0.02em]">
+              New Snapshot
+            </h1>
+          </div>
+        </div>
+        <Row className="items-end">
           <Col>
             {RequiredDirectory(this, null, "path", {
               autoFocus: true,
               placeholder: "enter path to snapshot",
             })}
           </Col>
-          <Col xs="auto">
+          <Col xs="auto" className="flex gap-2">
             <Button
               data-testid="estimate-now"
-              size="sm"
               disabled={!this.state.resolvedSource?.path}
               title="Estimate"
-              variant="secondary"
               onClick={this.estimate}
             >
               Estimate
             </Button>
             <Button
               data-testid="snapshot-now"
-              size="sm"
               disabled={!this.state.resolvedSource?.path}
               title="Snapshot Now"
               variant="primary"
@@ -204,26 +202,24 @@ class SnapshotCreateInternal extends Component {
         {this.state.estimateTaskID && this.state.estimateTaskVisible && (
           <SnapshotEstimation taskID={this.state.estimateTaskID} hideDescription={true} showZeroCounters={true} />
         )}
-        <br />
         {this.state.resolvedSource && (
-          <Row>
-            <Col xs={12}>
-              <Form.Text>{this.state.resolvedSource ? this.state.resolvedSource.path : this.state.path}</Form.Text>
-              <PolicyEditor
-                ref={this.policyEditorRef}
-                embedded
-                host={this.state.resolvedSource.host}
-                userName={this.state.resolvedSource.userName}
-                path={this.state.resolvedSource.path}
-              />
-            </Col>
-          </Row>
+          <>
+            <p className="m-0 font-mono text-[12px] text-dim">
+              {this.state.resolvedSource ? this.state.resolvedSource.path : this.state.path}
+            </p>
+            <PolicyEditor
+              ref={this.policyEditorRef}
+              embedded
+              host={this.state.resolvedSource.host}
+              userName={this.state.resolvedSource.userName}
+              path={this.state.resolvedSource.path}
+            />
+          </>
         )}
-        <br />
         <CLIEquivalent
           command={`snapshot create ${this.state.resolvedSource ? this.state.resolvedSource.path : this.state.path}`}
         />
-      </>
+      </div>
     );
   }
 }

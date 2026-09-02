@@ -2,15 +2,16 @@ import { faCopy } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import axios from "axios";
 import React, { Component } from "react";
-import Button from "react-bootstrap/Button";
-import { useNavigate, useLocation, useParams } from "react-router";
-import Row from "react-bootstrap/Row";
-import Col from "react-bootstrap/Col";
-import Spinner from "react-bootstrap/Spinner";
+import { Link, useNavigate, useLocation, useParams } from "react-router";
+import { Button, Input, Spinner } from "../design/components";
 import { DirectoryItems } from "../components/DirectoryItems";
 import { CLIEquivalent } from "../components/CLIEquivalent";
 import { DirectoryBreadcrumbs } from "../components/DirectoryBreadcrumbs";
 import PropTypes from "prop-types";
+
+const PRIMARY_LINK_BUTTON =
+  "inline-block cursor-pointer rounded-sm border border-ember bg-ember px-[14px] py-[9px] text-[12px] " +
+  "font-semibold tracking-[0.06em] text-ground uppercase hover:border-ember-soft hover:bg-ember-soft hover:text-ground";
 
 class SnapshotDirectoryInternal extends Component {
   constructor() {
@@ -29,6 +30,7 @@ class SnapshotDirectoryInternal extends Component {
     this.browseMounted = this.browseMounted.bind(this);
     this.copyPath = this.copyPath.bind(this);
     this.fetchDirectory = this.fetchDirectory.bind(this);
+    this.mountedPathRef = React.createRef();
   }
 
   componentDidUpdate(prevProps) {
@@ -112,7 +114,7 @@ class SnapshotDirectoryInternal extends Component {
 
   browseMounted() {
     if (!window.kopiaUI) {
-      alert("Directory browsing is not supported in a web browser. Use Kopia UI.");
+      alert("Directory browsing is not supported in a web browser. Use the WarpHold desktop app.");
       return;
     }
 
@@ -120,7 +122,7 @@ class SnapshotDirectoryInternal extends Component {
   }
 
   copyPath() {
-    const el = document.querySelector(".mounted-path");
+    const el = this.mountedPathRef.current;
     if (!el) {
       return;
     }
@@ -137,62 +139,42 @@ class SnapshotDirectoryInternal extends Component {
       return <p>ERROR: {error.message}</p>;
     }
     if (isLoading) {
-      return <Spinner animation="border" variant="primary" />;
+      return <Spinner size={24} />;
     }
 
     return (
-      <>
+      <div className="flex flex-col gap-4">
         <DirectoryBreadcrumbs />
-        <Row>
-          <Col xs="auto">
-            {this.state.mountInfo.path ? (
-              <>
-                <Button size="sm" variant="secondary" onClick={this.unmount}>
-                  Unmount
-                </Button>
-                {window.kopiaUI && (
-                  <>
-                    <Button size="sm" variant="secondary" onClick={this.browseMounted}>
-                      Browse
-                    </Button>
-                  </>
-                )}
-                <input
-                  readOnly={true}
-                  className="form-control form-control-sm mounted-path"
-                  value={this.state.mountInfo.path}
-                />
-                <Button size="sm" variant="success" onClick={this.copyPath} data-testid="copy-path-button">
-                  <FontAwesomeIcon icon={faCopy} />
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button size="sm" variant="secondary" onClick={this.mount}>
-                  Mount as Local Filesystem
-                </Button>
-              </>
-            )}
-            &nbsp;
-            <Button size="sm" variant="primary" href={"/snapshots/dir/" + this.props.params.oid + "/restore"}>
-              Restore Files & Directories
-            </Button>
-            &nbsp;
-          </Col>
-          <Col xs={12} md={6}>
-            You can mount/restore all the files & directories that you see below or restore files individually.
-          </Col>
-        </Row>
-        <Row>
-          <Col>&nbsp;</Col>
-        </Row>
-        <Row>
-          <Col xs={12}>
-            <DirectoryItems items={items} historyState={this.props.location.state} />
-          </Col>
-        </Row>
+        <div className="flex flex-wrap items-center gap-2">
+          {this.state.mountInfo.path ? (
+            <>
+              <Button onClick={this.unmount}>Unmount</Button>
+              {window.kopiaUI && <Button onClick={this.browseMounted}>Browse</Button>}
+              <Input
+                ref={this.mountedPathRef}
+                readOnly={true}
+                aria-label="Mounted path"
+                className="w-[30em] max-w-full font-mono text-[12px]"
+                value={this.state.mountInfo.path}
+              />
+              <Button onClick={this.copyPath} data-testid="copy-path-button" title="Copy path" aria-label="Copy path">
+                <FontAwesomeIcon icon={faCopy} />
+              </Button>
+            </>
+          ) : (
+            <Button onClick={this.mount}>Mount as Local Filesystem</Button>
+          )}
+          {/* A link, not a button: the upstream e2e follows /snapshots/dir/ links. */}
+          <Link to={"/snapshots/dir/" + this.props.params.oid + "/restore"} className={PRIMARY_LINK_BUTTON}>
+            Restore Files &amp; Directories
+          </Link>
+        </div>
+        <p className="m-0 text-muted">
+          You can mount/restore all the files &amp; directories that you see below or restore files individually.
+        </p>
+        <DirectoryItems items={items} historyState={this.props.location.state} />
         <CLIEquivalent command={`snapshot list ${this.state.oid}`} />
-      </>
+      </div>
     );
   }
 }

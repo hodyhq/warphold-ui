@@ -87,7 +87,7 @@ describe("Repository component - loading state", () => {
 
     renderWithContext();
     // React Bootstrap spinner has this specific class
-    const spinner = document.querySelector(".spinner-border");
+    const spinner = document.querySelector('[role="status"]');
     expect(spinner).toBeInTheDocument();
   });
 
@@ -188,9 +188,9 @@ describe("Repository component - connected state", () => {
 
     await waitFor(() => {
       // Get the description input specifically by its name attribute
-      const descriptionInput = screen.getByDisplayValue(""); // Empty value
+      const descriptionInput = screen.getByLabelText("Repository description");
       expect(descriptionInput).toHaveAttribute("name", "status.description");
-      expect(descriptionInput).toHaveClass("is-invalid");
+      expect(descriptionInput).toHaveAttribute("aria-invalid", "true");
       expect(screen.getByText("Description Is Required")).toBeInTheDocument();
     });
   });

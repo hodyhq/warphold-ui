@@ -4,15 +4,11 @@ import { EmailNotificationMethod } from "./EmailNotificationMethod";
 import { PushoverNotificationMethod } from "./PushoverNotificationMethod";
 import { WebHookNotificationMethod } from "./WebHookNotificationMethod";
 
-import Badge from "react-bootstrap/Badge";
-import Button from "react-bootstrap/Button";
-import Col from "react-bootstrap/Col";
-import Dropdown from "react-bootstrap/Dropdown";
-import Form from "react-bootstrap/Form";
-import Row from "react-bootstrap/Row";
-import Table from "react-bootstrap/Table";
+import { Button, Eyebrow, Pill } from "../../design/components";
+import { Row } from "../Layout";
 import { handleChange, stateProperty, valueToNumber } from "../../forms";
 import { RequiredField } from "../../forms/RequiredField";
+import { Control, FormField } from "../../forms/FormField";
 
 const notificationMethods = {
   email: { displayName: "E-mail", editor: EmailNotificationMethod },
@@ -189,10 +185,10 @@ export class NotificationEditor extends Component {
 
   renderEditor(SelectedEditor) {
     return (
-      <>
-        <Row>
-          <h4>{this.state.isNewProfile ? "New Notification Profile" : "Edit Notification Profile"}</h4>
-        </Row>
+      <div className="flex flex-col gap-4">
+        <h4 className="font-display m-0 text-[20px] font-extrabold tracking-[-0.02em]">
+          {this.state.isNewProfile ? "New Notification Profile" : "Edit Notification Profile"}
+        </h4>
         <Row>
           {RequiredField(
             this,
@@ -204,11 +200,13 @@ export class NotificationEditor extends Component {
             },
             "Unique name for this notification profile",
           )}
-          <Form.Group as={Col}>
-            <Form.Label className="required">Minimum Severity</Form.Label>
-            <Form.Control
+          <FormField
+            label="Minimum Severity"
+            required
+            help="Minimum severity required to use this notification profile"
+          >
+            <Control
               as="select"
-              size="sm"
               name="editedProfile.minSeverity"
               onChange={(e) => this.handleChange(e, valueToNumber)}
               value={stateProperty(this, "editedProfile.minSeverity")}
@@ -218,117 +216,99 @@ export class NotificationEditor extends Component {
                   {o.label}
                 </option>
               ))}
-            </Form.Control>
-            <Form.Text className="text-muted">Minimum severity required to use this notification profile</Form.Text>
-          </Form.Group>
+            </Control>
+          </FormField>
         </Row>
         <Row>
           <SelectedEditor ref={this.optionsEditor} initial={this.state.editedProfile.method.config} />
         </Row>
-        <Row>
-          <Col>
-            <hr />
-            {this.state.isNewProfile ? (
-              <Button size="sm" onClick={() => this.saveNewProfile()}>
-                Create Profile
-              </Button>
-            ) : (
-              <Button size="sm" onClick={() => this.updateProfile()}>
-                Update Profile
-              </Button>
-            )}
-            <Button size="sm" variant="secondary" onClick={() => this.sendTestNotification(null)}>
-              Send Test Notification
+        <hr className="border-line" />
+        <div className="flex flex-wrap items-center gap-3">
+          {this.state.isNewProfile ? (
+            <Button variant="primary" onClick={() => this.saveNewProfile()}>
+              Create Profile
             </Button>
-            <Button size="sm" variant="danger" onClick={() => this.setEditedProfile(null, false)}>
-              Cancel
+          ) : (
+            <Button variant="primary" onClick={() => this.updateProfile()}>
+              Update Profile
             </Button>
-          </Col>
-        </Row>
-      </>
+          )}
+          <Button onClick={() => this.sendTestNotification(null)}>Send Test Notification</Button>
+          <Button variant="danger" onClick={() => this.setEditedProfile(null, false)}>
+            Cancel
+          </Button>
+        </div>
+      </div>
     );
   }
 
   renderList() {
     return (
-      <>
+      <div className="flex flex-col gap-4">
         {this.state.notificationProfiles && this.state.notificationProfiles.length > 0 ? (
-          <Row>
-            <Table striped bordered hover>
-              <thead>
-                <tr>
-                  <th>Profile</th>
-                  <th>Method</th>
-                  <th>Minimum Severity</th>
-                  <th>Actions</th>
+          <table className="w-full border-collapse text-[13px]">
+            <thead>
+              <tr className="border-b border-line-strong text-left">
+                <th className="px-2 py-[10px] font-normal">
+                  <Eyebrow>Profile</Eyebrow>
+                </th>
+                <th className="px-2 py-[10px] font-normal">
+                  <Eyebrow>Method</Eyebrow>
+                </th>
+                <th className="px-2 py-[10px] font-normal">
+                  <Eyebrow>Minimum Severity</Eyebrow>
+                </th>
+                <th className="px-2 py-[10px] font-normal">
+                  <Eyebrow>Actions</Eyebrow>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {this.state.notificationProfiles.map((p) => (
+                <tr key={p.profile} className="border-b border-line">
+                  <td className="px-2 py-[10px] font-mono">{p.profile}</td>
+                  <td className="px-2 py-[10px]">{notificationMethods[p.method.type].displayName}</td>
+                  <td className="px-2 py-[10px]">{severityName(p.minSeverity)}</td>
+                  <td className="flex flex-wrap gap-2 px-2 py-[10px]">
+                    <Button onClick={() => this.setEditedProfile(p, false)}>Edit</Button>
+                    <Button onClick={() => this.duplicateProfile(p)}>Duplicate</Button>
+                    <Button onClick={() => this.sendTestNotification(p)}>Send Test Notification</Button>
+                    <Button variant="danger" onClick={() => this.deleteProfile(p.profile)}>
+                      Delete
+                    </Button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {this.state.notificationProfiles.map((p) => (
-                  <tr key={p.profile}>
-                    <td>{p.profile}</td>
-                    <td>{notificationMethods[p.method.type].displayName}</td>
-                    <td>{severityName(p.minSeverity)}</td>
-                    <td>
-                      <Button size="sm" variant="success" onClick={() => this.setEditedProfile(p, false)}>
-                        Edit
-                      </Button>
-                      <Button size="sm" onClick={() => this.duplicateProfile(p)}>
-                        Duplicate
-                      </Button>
-                      <Button size="sm" variant="secondary" onClick={() => this.sendTestNotification(p)}>
-                        Send Test Notification
-                      </Button>
-                      <Button size="sm" onClick={() => this.deleteProfile(p.profile)} variant="danger">
-                        Delete
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          </Row>
-        ) : (
-          <Row>
-            <p>
-              <Badge bg="warning" text="dark">
-                Important
-              </Badge>
-              &nbsp;You don&apos;t have any notification profiles defined.
-              <br />
-              <br />
-              Click the button below to add a new profile to receive notifications from Kopia.
-            </p>
-          </Row>
-        )}
-        <Row>
-          <Dropdown>
-            <Dropdown.Toggle size="sm" variant="primary" id="newProfileButton">
-              Create New Profile
-            </Dropdown.Toggle>
-            <Dropdown.Menu>
-              {Object.keys(notificationMethods).map((k) => (
-                <Dropdown.Item
-                  key={k}
-                  onClick={() =>
-                    // create empty profile
-                    this.setEditedProfile(
-                      {
-                        profile: this.newProfileName(k),
-                        method: { type: k, config: {} },
-                        minSeverity: 0,
-                      },
-                      true,
-                    )
-                  }
-                >
-                  {notificationMethods[k].displayName}
-                </Dropdown.Item>
               ))}
-            </Dropdown.Menu>
-          </Dropdown>
-        </Row>
-      </>
+            </tbody>
+          </table>
+        ) : (
+          <p className="m-0 flex flex-wrap items-center gap-2 text-muted">
+            <Pill tone="warn">Important</Pill>
+            You don&apos;t have any notification profiles defined. Pick a method below to start receiving notifications.
+          </p>
+        )}
+        <div className="flex flex-wrap items-center gap-3">
+          {Object.keys(notificationMethods).map((k) => (
+            <Button
+              key={k}
+              data-testid={"new-profile-" + k}
+              onClick={() =>
+                // create empty profile
+                this.setEditedProfile(
+                  {
+                    profile: this.newProfileName(k),
+                    method: { type: k, config: {} },
+                    minSeverity: 0,
+                  },
+                  true,
+                )
+              }
+            >
+              New {notificationMethods[k].displayName} profile
+            </Button>
+          ))}
+        </div>
+      </div>
     );
   }
 

@@ -81,11 +81,11 @@ describe("KopiaTable", () => {
       expect(screen.queryByText("Item 1")).not.toBeInTheDocument();
     });
 
-    it("displays page size dropdown with current page size", () => {
+    it("displays the page size selector with the current page size", () => {
       const data = createSampleData(15);
       renderWithContext(<KopiaTable columns={sampleColumns} data={data} />, mockContext);
 
-      expect(screen.getByText("Page Size: 10")).toBeInTheDocument();
+      expect(screen.getByLabelText("Page size")).toHaveValue("10");
     });
   });
 
@@ -94,20 +94,17 @@ describe("KopiaTable", () => {
       const data = createSampleData(25); // More than default page size of 10
       renderWithContext(<KopiaTable columns={sampleColumns} data={data} />, mockContext);
 
-      // Pagination controls should be visible - check for pagination list
-      expect(screen.getByRole("list")).toBeInTheDocument();
-      expect(screen.getByText("First", { selector: ".visually-hidden" })).toBeInTheDocument();
-      expect(screen.getByText("Previous", { selector: ".visually-hidden" })).toBeInTheDocument();
-      expect(screen.getByText("Next", { selector: ".visually-hidden" })).toBeInTheDocument();
-      expect(screen.getByText("Last", { selector: ".visually-hidden" })).toBeInTheDocument();
+      expect(screen.getByRole("navigation", { name: "Pagination" })).toBeInTheDocument();
+      for (const name of ["First page", "Previous page", "Next page", "Last page"]) {
+        expect(screen.getByRole("button", { name })).toBeInTheDocument();
+      }
     });
 
     it("does not show pagination when data fits on single page", () => {
       const data = createSampleData(5); // Less than page size
       renderWithContext(<KopiaTable columns={sampleColumns} data={data} />, mockContext);
 
-      // Should not have pagination list
-      expect(screen.queryByRole("list")).not.toBeInTheDocument();
+      expect(screen.queryByRole("navigation", { name: "Pagination" })).not.toBeInTheDocument();
     });
 
     it("displays correct number of rows per page", () => {
@@ -159,17 +156,11 @@ describe("KopiaTable", () => {
       const data = createSampleData(25);
       renderWithContext(<KopiaTable columns={sampleColumns} data={data} />, mockContext);
 
-      // On first page, previous and first should be disabled
-      // Find the pagination list items by their content
-      const firstItem = screen.getByText("First", { selector: ".visually-hidden" }).closest("li");
-      const prevItem = screen.getByText("Previous", { selector: ".visually-hidden" }).closest("li");
-      const nextItem = screen.getByText("Next", { selector: ".visually-hidden" }).closest("li");
-      const lastItem = screen.getByText("Last", { selector: ".visually-hidden" }).closest("li");
-
-      expect(firstItem).toHaveClass("disabled");
-      expect(prevItem).toHaveClass("disabled");
-      expect(nextItem).not.toHaveClass("disabled");
-      expect(lastItem).not.toHaveClass("disabled");
+      // On the first page, "first" and "previous" have nowhere to go.
+      expect(screen.getByRole("button", { name: "First page" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Previous page" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Next page" })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "Last page" })).toBeEnabled();
     });
   });
 
@@ -179,31 +170,18 @@ describe("KopiaTable", () => {
       const data = createSampleData(50);
       renderWithContext(<KopiaTable columns={sampleColumns} data={data} />, mockContext);
 
-      // Open page size dropdown
-      const dropdown = screen.getByText("Page Size: 10");
-      await user.click(dropdown);
-
-      // Click on page size 20
-      const pageSize20 = screen.getByText("Page Size 20");
-      await user.click(pageSize20);
+      await user.selectOptions(screen.getByLabelText("Page size"), "20");
 
       // Verify setPageSize was called
       expect(mockContext.setPageSize).toHaveBeenCalledWith(20);
     });
 
-    it("displays all available page sizes in dropdown", async () => {
-      const user = userEvent.setup();
+    it("offers every available page size", () => {
       const data = createSampleData(25);
       renderWithContext(<KopiaTable columns={sampleColumns} data={data} />, mockContext);
 
-      // Open page size dropdown
-      const dropdown = screen.getByText("Page Size: 10");
-      await user.click(dropdown);
-
-      // Check all page sizes are available
-      PAGE_SIZES.forEach((size) => {
-        expect(screen.getByText(`Page Size ${size}`)).toBeInTheDocument();
-      });
+      const options = [...screen.getByLabelText("Page size").options].map((o) => o.value);
+      expect(options).toEqual(PAGE_SIZES.map(String));
     });
 
     it("respects different page sizes from context", () => {
@@ -211,7 +189,7 @@ describe("KopiaTable", () => {
       const data = createSampleData(50);
       renderWithContext(<KopiaTable columns={sampleColumns} data={data} />, contextWithLargerPageSize);
 
-      expect(screen.getByText("Page Size: 20")).toBeInTheDocument();
+      expect(screen.getByLabelText("Page size")).toHaveValue("20");
 
       // Should show 20 rows instead of 10
       const rows = screen.getAllByRole("row");
@@ -287,11 +265,11 @@ describe("KopiaTable", () => {
 
       // Click to sort ascending
       await user.click(nameHeader);
-      expect(nameHeader.parentElement).toHaveTextContent("🔼");
+      expect(nameHeader.parentElement).toHaveTextContent("▲");
 
       // Click to sort descending
       await user.click(nameHeader);
-      expect(nameHeader.parentElement).toHaveTextContent("🔽");
+      expect(nameHeader.parentElement).toHaveTextContent("▼");
     });
   });
 
@@ -357,7 +335,7 @@ describe("KopiaTable", () => {
       const data = createSampleData(5);
       renderWithContext(<KopiaTable columns={sampleColumns} data={data} />, mockContext);
 
-      const nameHeader = screen.getByText("Name").closest("div");
+      const nameHeader = screen.getByText("Name").closest("button");
       expect(nameHeader).toHaveAttribute("title", "Sort ascending");
     });
   });
