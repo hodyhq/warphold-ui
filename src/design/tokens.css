@@ -54,3 +54,11 @@
 .wh a:hover {
   color: var(--color-ember-hover);
 }
+/* Keyboard focus. One rule rather than a class per control: nav links, table
+   rows and the role="button" cards are all custom elements with no border of
+   their own to thicken, and Tailwind ships without preflight here, so nothing
+   else draws a focus ring. */
+.wh :focus-visible {
+  outline: 2px solid var(--color-ember);
+  outline-offset: 2px;
+}

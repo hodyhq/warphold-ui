@@ -40,13 +40,34 @@ function num(v: number | undefined): string {
   return typeof v === "number" ? String(v) : "";
 }
 
+/**
+ * A policy section as read back from the Advanced drawer. `policyFromJSON`
+ * only checks that the top level is an object, so every section below it can
+ * be any JSON value; anything that is not a plain object reads as an empty
+ * section rather than throwing during Templates' render.
+ */
+function section<T>(v: unknown): Partial<T> {
+  return typeof v === "object" && v !== null && !Array.isArray(v) ? (v as Partial<T>) : {};
+}
+
+function isTimeOfDay(t: unknown): t is { hour: number; min: number } {
+  const v = t as { hour?: unknown; min?: unknown } | null;
+  return typeof v === "object" && v !== null && typeof v.hour === "number" && typeof v.min === "number";
+}
+
 /** The form's view of a policy. */
 export function formFromPolicy(p: KopiaPolicy): PolicyForm {
-  const s = p.scheduling ?? {};
-  const times = s.timeOfDay ?? [];
+  const s = section<NonNullable<KopiaPolicy["scheduling"]>>(p.scheduling);
+  const raw: unknown = s.timeOfDay;
+  const times = (Array.isArray(raw) ? raw : []).filter(isTimeOfDay);
+  // A timeOfDay the form cannot read - not an array, or an entry without a
+  // numeric hour/min - is hand-edited JSON it must not rewrite either.
+  const unreadable = raw !== undefined && (!Array.isArray(raw) || times.length !== raw.length);
   let schedule: ScheduleKind = "manual";
   let time = DEFAULT_TIME;
-  if (s.intervalSeconds === HOURLY_SECONDS && times.length === 0) {
+  if (unreadable) {
+    schedule = "custom";
+  } else if (s.intervalSeconds === HOURLY_SECONDS && times.length === 0) {
     schedule = "hourly";
   } else if (times.length === 1 && !s.intervalSeconds) {
     schedule = "daily";
@@ -57,16 +78,18 @@ export function formFromPolicy(p: KopiaPolicy): PolicyForm {
     // form can draw, which saving would then write back as the real schedule.
     schedule = "custom";
   }
-  const r = p.retention ?? {};
+  const r = section<NonNullable<KopiaPolicy["retention"]>>(p.retention);
+  const ignore: unknown = section<NonNullable<KopiaPolicy["files"]>>(p.files).ignore;
+  const compressor = section<NonNullable<KopiaPolicy["compression"]>>(p.compression).compressorName;
   return {
     schedule,
     time,
-    exclude: (p.files?.ignore ?? []).join("\n"),
+    exclude: (Array.isArray(ignore) ? ignore.filter((g) => typeof g === "string") : []).join("\n"),
     keepLatest: num(r.keepLatest),
     keepDaily: num(r.keepDaily),
     keepWeekly: num(r.keepWeekly),
     keepMonthly: num(r.keepMonthly),
-    compression: p.compression?.compressorName === "zstd" ? "zstd" : p.compression?.compressorName === "none" ? "none" : "auto",
+    compression: compressor === "zstd" ? "zstd" : compressor === "none" ? "none" : "auto",
   };
 }
 
@@ -79,8 +102,8 @@ export function lines(text: string): string[] {
 }
 
 /** Drops a section that ended up empty, so the JSON stays as small as it reads. */
-function prune<T extends object>(section: T): T | undefined {
-  return Object.keys(section).length === 0 ? undefined : section;
+function prune<T extends object>(obj: T): T | undefined {
+  return Object.keys(obj).length === 0 ? undefined : obj;
 }
 
 function withKey<T extends object>(obj: T, key: keyof T, value: unknown): T {
@@ -112,7 +135,7 @@ export function policyWithForm(policy: KopiaPolicy, form: PolicyForm): KopiaPoli
 
   // Scheduling: `custom` means "leave whatever is in the JSON alone".
   if (form.schedule !== "custom") {
-    let scheduling = { ...(policy.scheduling ?? {}) };
+    let scheduling = { ...section<NonNullable<KopiaPolicy["scheduling"]>>(policy.scheduling) };
     // A cron line is the other half of a custom schedule: left in place it
     // would keep running the schedule the admin just replaced, and would read
     // straight back as "custom".
@@ -129,10 +152,10 @@ export function policyWithForm(policy: KopiaPolicy, form: PolicyForm): KopiaPoli
     next.scheduling = prune(scheduling);
   }
 
-  const files = withKey({ ...(policy.files ?? {}) }, "ignore", lines(form.exclude).length ? lines(form.exclude) : undefined);
+  const files = withKey({ ...section<NonNullable<KopiaPolicy["files"]>>(policy.files) }, "ignore", lines(form.exclude).length ? lines(form.exclude) : undefined);
   next.files = prune(files);
 
-  let retention = { ...(policy.retention ?? {}) };
+  let retention = { ...section<NonNullable<KopiaPolicy["retention"]>>(policy.retention) };
   retention = withKey(retention, "keepLatest", intOrUndefined(form.keepLatest));
   retention = withKey(retention, "keepDaily", intOrUndefined(form.keepDaily));
   retention = withKey(retention, "keepWeekly", intOrUndefined(form.keepWeekly));
@@ -140,7 +163,7 @@ export function policyWithForm(policy: KopiaPolicy, form: PolicyForm): KopiaPoli
   next.retention = prune(retention);
 
   const compression = withKey(
-    { ...(policy.compression ?? {}) },
+    { ...section<NonNullable<KopiaPolicy["compression"]>>(policy.compression) },
     "compressorName",
     form.compression === "auto" ? undefined : form.compression,
   );

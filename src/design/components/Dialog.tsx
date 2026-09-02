@@ -46,7 +46,7 @@ export function Dialog({ open, onClose, title, children, className }: DialogProp
       if (e.shiftKey && (active === first || active === cardRef.current || !cardRef.current?.contains(active))) {
         e.preventDefault();
         last.focus();
-      } else if (!e.shiftKey && active === last) {
+      } else if (!e.shiftKey && (active === last || active === cardRef.current || !cardRef.current?.contains(active))) {
         e.preventDefault();
         first.focus();
       }

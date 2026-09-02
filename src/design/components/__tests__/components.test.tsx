@@ -278,6 +278,12 @@ describe("Dialog focus", () => {
 });
 
 describe("Toast", () => {
+  // Restored here rather than at the end of the timer test: a failed
+  // assertion there would otherwise leave the rest of the file on fake timers.
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("renders the message with its tone", () => {
     render(<Toast message="Snapshot started" tone="good" onDismiss={vi.fn()} />);
     expect(screen.getByRole("status")).toHaveTextContent("Snapshot started");
@@ -293,7 +299,6 @@ describe("Toast", () => {
       vi.advanceTimersByTime(5000);
     });
     expect(onDismiss).toHaveBeenCalledTimes(1);
-    vi.useRealTimers();
   });
 });
 

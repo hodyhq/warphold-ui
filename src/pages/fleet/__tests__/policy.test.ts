@@ -40,6 +40,23 @@ describe("formFromPolicy", () => {
     ).toBe("custom");
     expect(formFromPolicy({ scheduling: { cron: ["0 3 * * *"] } }).schedule).toBe("custom");
   });
+
+  // The Advanced drawer hands formFromPolicy whatever JSON object the admin
+  // typed: policyFromJSON only checks the top level, and Templates calls this
+  // during render, so a bad shape has to read as empty rather than throw.
+  it("survives every shape hand-edited JSON can put in a section", () => {
+    const bad = (p: unknown) => formFromPolicy(p as KopiaPolicy);
+    expect(bad({ files: { ignore: "~/.cache" } }).exclude).toBe("");
+    expect(bad({ files: { ignore: ["~/.cache", 7, null] } }).exclude).toBe("~/.cache");
+    expect(bad({ files: "everything" }).exclude).toBe("");
+    expect(bad({ scheduling: { timeOfDay: [null] } })).toMatchObject({ schedule: "custom", time: "03:00" });
+    expect(bad({ scheduling: { timeOfDay: "03:00" } }).schedule).toBe("custom");
+    expect(bad({ scheduling: { timeOfDay: [{ hour: "3", min: 0 }] } }).schedule).toBe("custom");
+    expect(bad({ scheduling: 3600 }).schedule).toBe("manual");
+    expect(bad({ retention: { keepDaily: "7" } }).keepDaily).toBe("");
+    expect(bad({ retention: [] }).keepLatest).toBe("");
+    expect(bad({ compression: "zstd" }).compression).toBe("auto");
+  });
 });
 
 describe("policyWithForm", () => {

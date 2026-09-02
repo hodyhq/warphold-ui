@@ -44,6 +44,26 @@ describe("detectMode", () => {
     await expect(detectMode()).resolves.toEqual({ mode: "agent", activated: false });
   });
 
+  it("reports agent mode on an IPv6 loopback host", async () => {
+    setHostname("[::1]");
+    mock.onGet("/api/v1/fleet/status").reply(404);
+    mock.onGet("/api/v1/sources").reply(200, { sources: [] });
+
+    await expect(detectMode()).resolves.toEqual({ mode: "agent", activated: false });
+  });
+
+  it("bounds every probe so a hung server cannot hold the shell on a blank page", async () => {
+    mock.onGet("/api/v1/fleet/status").reply(404);
+    mock.onGet("/api/v1/sources").reply(200, { sources: [] });
+    setHostname("127.0.0.1");
+
+    await detectMode();
+    expect(mock.history.get).toHaveLength(2);
+    for (const req of mock.history.get) {
+      expect(req.signal).toBeInstanceOf(AbortSignal);
+    }
+  });
+
   it("reports solo mode on a loopback host without the local session cookie", async () => {
     setHostname("localhost");
     mock.onGet("/api/v1/fleet/status").reply(404);

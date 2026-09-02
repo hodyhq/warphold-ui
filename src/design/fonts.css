@@ -7,7 +7,7 @@
  * every weight the design system uses.
  */
 @font-face {
-  font-family: "Unbounded";
+  font-family: Unbounded;
   src: url("./fonts/Unbounded-Variable.woff2") format("woff2-variations");
   font-weight: 200 900;
   font-style: normal;

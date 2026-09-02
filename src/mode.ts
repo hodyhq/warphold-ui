@@ -15,12 +15,22 @@ export interface ModeInfo {
   activated: boolean;
 }
 
-/** Hostnames the agent UI is served on. Anything else is a real server. */
-const LOOPBACK = new Set(["127.0.0.1", "localhost"]);
+/**
+ * Hostnames the agent UI is served on. Anything else is a real server.
+ * Browsers report an IPv6 loopback origin as `[::1]`, Node and jsdom as `::1`.
+ */
+const LOOPBACK = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+
+/**
+ * How long a probe may hang. A server that accepts the connection and never
+ * answers would otherwise leave AppShell rendering null forever, with no
+ * "Try again" - that button only appears once detectMode rejects.
+ */
+const PROBE_TIMEOUT_MS = 8000;
 
 async function ok(url: string): Promise<boolean> {
   try {
-    await axios.get(url, { withCredentials: true });
+    await axios.get(url, { withCredentials: true, signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) });
     return true;
   } catch {
     return false;
@@ -37,14 +47,17 @@ async function ok(url: string): Promise<boolean> {
  * successful /api/v1/sources call from a loopback origin is what separates
  * the two.
  *
- * Only a 404 is an answer. A 5xx or a network failure says nothing about
- * which product this is, so it is thrown rather than guessed at: falling back
- * to solo there would hand a Fleet admin the single-user UI during an outage
- * and make it look like their fleet had vanished.
+ * Only a 404 is an answer. A 5xx, a network failure or a timed-out probe says
+ * nothing about which product this is, so it is thrown rather than guessed at:
+ * falling back to solo there would hand a Fleet admin the single-user UI
+ * during an outage and make it look like their fleet had vanished.
  */
 export async function detectMode(): Promise<ModeInfo> {
   try {
-    const { data } = await axios.get<{ activated?: boolean }>("/api/v1/fleet/status", { withCredentials: true });
+    const { data } = await axios.get<{ activated?: boolean }>("/api/v1/fleet/status", {
+      withCredentials: true,
+      signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+    });
     return { mode: "fleet", activated: data?.activated === true };
   } catch (err) {
     if ((err as AxiosError).response?.status !== 404) {

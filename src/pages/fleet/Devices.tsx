@@ -186,6 +186,10 @@ export function Devices() {
             Add device
           </Button>
         </div>
+      ) : tableRows.length === 0 ? (
+        // A chip can be clicked while its count is 0, which would otherwise
+        // leave a table header over nothing.
+        <p className="m-0 pt-6 text-muted">No devices match this filter.</p>
       ) : (
         <Table
           template="8px 1.3fr 0.8fr 2fr 1fr 0.7fr 0.7fr"

@@ -20,7 +20,9 @@ export function Login() {
     setError("");
     setBusy(true);
     try {
-      await fleet.login(email, password);
+      // Same normalization as Activate's first admin: a pasted or autocompleted
+      // address with a stray space would sign in as an account that does not exist.
+      await fleet.login(email.trim(), password);
       navigate("/fleet");
     } catch (err) {
       // 409 is "fleet is not activated": there is no account to sign in to

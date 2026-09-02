@@ -175,6 +175,13 @@ export function Groups() {
         </div>
       )}
 
+      {failed && (
+        <div className="flex items-center gap-4">
+          <p className="m-0 font-mono text-[12px] text-dim">Cannot reach the server; showing the last state.</p>
+          <Button onClick={reload}>Try again</Button>
+        </div>
+      )}
+
       {creating && (
         <NewGroupDialog
           targets={targets}

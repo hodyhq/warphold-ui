@@ -12,10 +12,16 @@ export interface ToastProps {
 }
 
 export function Toast({ message, tone = "ink", onDismiss, duration = 5000, className }: ToastProps) {
+  // Callers pass an inline arrow, so a new onDismiss arrives on every parent
+  // render; depending on it would restart the timer each time and a busy
+  // screen could keep the toast up indefinitely.
+  const dismissRef = React.useRef(onDismiss);
+  dismissRef.current = onDismiss;
+
   React.useEffect(() => {
-    const timer = setTimeout(onDismiss, duration);
+    const timer = setTimeout(() => dismissRef.current(), duration);
     return () => clearTimeout(timer);
-  }, [onDismiss, duration]);
+  }, [duration]);
 
   return (
     <div
