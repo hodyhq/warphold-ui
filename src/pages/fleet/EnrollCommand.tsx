@@ -24,13 +24,15 @@ export function CopyField({ label, value, className }: { label: string; value: s
   return (
     <div className="flex flex-col gap-[6px]">
       <Eyebrow>{label}</Eyebrow>
-      <div className="flex items-stretch gap-2">
+      {/* The command is long: on a narrow screen the Copy button drops below
+          the field rather than squeezing it to nothing. */}
+      <div className="flex flex-wrap items-stretch gap-2">
         <input
           readOnly
           aria-label={label}
           value={value}
           onFocus={(e) => e.currentTarget.select()}
-          className={clsx(inputClass, "grow font-mono text-[12px]", className)}
+          className={clsx(inputClass, "min-w-[220px] grow font-mono text-[12px]", className)}
         />
         <Button
           onClick={() => {

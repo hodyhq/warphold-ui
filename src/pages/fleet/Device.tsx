@@ -210,19 +210,19 @@ export function Device() {
         ← Devices
       </Link>
 
-      <div className="flex items-end justify-between gap-6">
+      <div className="flex flex-col items-start gap-4 md:flex-row md:items-end md:justify-between md:gap-6">
         <div>
           <div data-testid="device-facts">
             <Eyebrow>
               {[groupName, `agent ${detail.version}`, detail.os, `${detail.scope} scope`].filter(Boolean).join(" · ")}
             </Eyebrow>
           </div>
-          <h1 className="font-display m-0 mt-2 flex items-center gap-4 text-[40px] leading-none font-extrabold tracking-[-0.02em]">
+          <h1 className="font-display m-0 mt-2 flex items-center gap-4 text-[28px] leading-none font-extrabold tracking-[-0.02em] md:text-[40px]">
             <HealthBar tone={HEALTH_TONE[detail.health]} height={36} />
             {detail.name}
           </h1>
         </div>
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="flex flex-wrap gap-2 md:justify-end">
           <Button variant="primary" disabled={revoked} onClick={() => command("snapshot-now", "Snapshot")}>
             Snapshot now
           </Button>
@@ -253,7 +253,7 @@ export function Device() {
         </Card>
       )}
 
-      <div className="grid grid-cols-3 gap-[18px]">
+      <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-3">
         <Card data-testid="kpi-last">
           <Eyebrow>Last snapshot</Eyebrow>
           <div
@@ -280,9 +280,9 @@ export function Device() {
         </Card>
       </div>
 
-      <div className="grid min-h-0 grid-cols-[0.9fr_1.6fr] gap-6">
+      <div className="grid min-h-0 grid-cols-1 gap-6 md:grid-cols-[0.9fr_1.6fr]">
         <Sources template={template} />
-        <div>
+        <div className="min-w-0">
           {reports.length === 0 ? (
             <>
               <Eyebrow className="block border-b border-line-strong pb-[6px]">Recent runs</Eyebrow>

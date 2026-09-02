@@ -126,10 +126,10 @@ export function Groups() {
 
   return (
     <div className="flex min-h-0 grow flex-col gap-[18px]">
-      <div className="flex items-end justify-between gap-6">
+      <div className="flex flex-col items-start gap-4 md:flex-row md:items-end md:justify-between md:gap-6">
         <div>
           <Eyebrow>Groups</Eyebrow>
-          <h1 className="font-display m-0 mt-2 text-[36px] leading-none font-extrabold tracking-[-0.02em]">
+          <h1 className="font-display m-0 mt-2 text-[28px] leading-none font-extrabold tracking-[-0.02em] md:text-[36px]">
             {groups.length === 0 ? "No groups yet" : `${groups.length} group${groups.length === 1 ? "" : "s"}`}
           </h1>
         </div>
@@ -144,7 +144,7 @@ export function Groups() {
           way, to the same place.
         </p>
       ) : (
-        <div className="grid grid-cols-3 gap-[18px]">
+        <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 md:grid-cols-3">
           {groups.map((g) => {
             const count = members(g.id);
             return (
@@ -329,7 +329,7 @@ function InstallerDialog({ group, onClose }: { group: Group; onClose: () => void
         </>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-[14px]">
+          <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-2">
             <Field label="Token lasts">
               <Select value={ttl} onChange={(e) => setTTL(e.target.value)}>
                 {TTLS.map((t) => (

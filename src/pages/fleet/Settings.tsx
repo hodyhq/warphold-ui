@@ -70,9 +70,11 @@ export function Settings() {
     <div className="flex min-h-0 grow flex-col gap-[18px]">
       <div>
         <Eyebrow>Settings</Eyebrow>
-        <h1 className="font-display m-0 mt-2 text-[36px] leading-none font-extrabold tracking-[-0.02em]">This fleet</h1>
+        <h1 className="font-display m-0 mt-2 text-[28px] leading-none font-extrabold tracking-[-0.02em] md:text-[36px]">
+          This fleet
+        </h1>
       </div>
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <FleetNameCard
           settings={settings}
           onSaved={(s) => {

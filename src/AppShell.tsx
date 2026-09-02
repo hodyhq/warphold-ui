@@ -61,22 +61,24 @@ function FleetLayout() {
       {pathname === "/fleet" && (
         <div
           aria-hidden="true"
-          className="bg-panel pointer-events-none absolute top-0 left-[-120px] h-full w-[620px] -skew-x-12"
+          className="bg-panel pointer-events-none absolute top-0 left-[-120px] hidden h-full w-[620px] -skew-x-12 md:block"
         />
       )}
-      <header className="relative flex items-center gap-9 px-12 py-[22px]">
+      <header className="relative flex flex-wrap items-center gap-x-4 gap-y-3 px-5 py-4 md:flex-nowrap md:gap-9 md:px-12 md:py-[22px]">
         <Link to="/fleet" className="flex items-center gap-[10px] text-inherit hover:text-inherit">
           <Mark />
           <span className="font-display text-[16px] font-extrabold tracking-[0.02em]">WARPHOLD</span>
         </Link>
-        <Nav items={NAV} current={currentNav(pathname)} />
+        {/* order-last + w-full drops the nav onto its own scrollable row under
+            the wordmark on a phone; from md it sits inline as before. */}
+        <Nav items={NAV} current={currentNav(pathname)} className="order-last w-full md:order-none md:w-auto" />
         <div className="grow" />
-        {fleetName && <span className="text-dim font-mono text-[12px]">{fleetName}</span>}
+        {fleetName && <span className="text-dim hidden font-mono text-[12px] md:inline">{fleetName}</span>}
         <Button variant="primary" onClick={() => navigate("/fleet/groups")}>
           Add device
         </Button>
       </header>
-      <main className="relative min-h-0 grow px-12 pt-[22px] pb-8">
+      <main className="relative min-h-0 grow px-5 pt-5 pb-8 md:px-12 md:pt-[22px]">
         <Outlet />
       </main>
     </div>

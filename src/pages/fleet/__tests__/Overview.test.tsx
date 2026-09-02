@@ -150,6 +150,17 @@ describe("Overview", () => {
     expect(screen.queryByTestId("latest-failure")).not.toBeInTheDocument();
   });
 
+  it("keeps a gap between the two eyebrows of the devices header", async () => {
+    // Without it the row's justify-between lets them meet as the column
+    // narrows, and the header reads "DEVICESLAST 30 DAYS".
+    overview.mockResolvedValue(DATA);
+    renderOverview();
+
+    const head = await screen.findByTestId("devices-head");
+    expect(head).toHaveClass("gap-4");
+    expect(head).toHaveTextContent(/^Deviceslast 30 days$/);
+  });
+
   it("offers a retry when the server cannot be reached", async () => {
     overview.mockRejectedValueOnce(new Error("network down")).mockResolvedValue(DATA);
     renderOverview();

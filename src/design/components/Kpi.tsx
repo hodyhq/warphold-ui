@@ -17,7 +17,9 @@ export function Kpi({ label, value, unit, tone = "ink", sub, className }: KpiPro
     <div className={clsx("flex flex-col", className)}>
       <Eyebrow>{label}</Eyebrow>
       <div className="mt-2 flex items-baseline">
-        <span className={clsx("font-display text-[28px] leading-none font-extrabold", toneText[tone])}>{value}</span>
+        <span className={clsx("font-display text-[22px] leading-none font-extrabold md:text-[28px]", toneText[tone])}>
+          {value}
+        </span>
         {unit != null ? <span className="ml-1 text-[14px] text-muted">{unit}</span> : null}
       </div>
       {sub != null ? <span className="mt-1 font-mono text-[12px] text-dim">{sub}</span> : null}

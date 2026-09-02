@@ -22,7 +22,7 @@ function plural(n: number, one: string): string {
 /** One cell of the KPI strip: the design's 1px-gap grid of ground-colored tiles. */
 function Tile({ id, ...kpi }: { id: string } & KpiProps) {
   return (
-    <div data-testid={`kpi-${id}`} className="bg-ground px-4 py-[14px]">
+    <div data-testid={`kpi-${id}`} className="bg-ground px-3 py-3 md:px-4 md:py-[14px]">
       <Kpi {...kpi} />
     </div>
   );
@@ -115,24 +115,27 @@ export function Overview() {
   const stored = data.dedup_ratio == null ? null : splitBytes(data.stored_bytes);
 
   return (
-    <div className="grid min-h-0 grow grid-cols-[1.15fr_1fr] gap-14">
+    <div className="grid min-h-0 grow grid-cols-1 gap-10 md:grid-cols-[1.15fr_1fr] md:gap-14">
       <section className="flex flex-col gap-[22px]">
         <div>
           <Eyebrow>
             {data.fleet_name || "Fleet"} · {plural(counts.agents, "device")} · {plural(counts.targets, "target")}
           </Eyebrow>
-          <h1 className="font-display m-0 mt-2 text-[64px] leading-[0.98] font-extrabold tracking-[-0.02em]">
+          <h1 className="font-display m-0 mt-2 text-[40px] leading-[0.98] font-extrabold tracking-[-0.02em] md:text-[64px]">
             {counts.green}
             <span className="text-ember">/</span>
             {counts.agents}
             <br />
-            <span className="text-[28px] font-semibold text-ink-soft">protected right now</span>
+            <span className="text-[22px] font-semibold text-ink-soft md:text-[28px]">protected right now</span>
           </h1>
         </div>
 
+        {/* Four tiles are two rows of two on a phone; three stay in one row. */}
         <div
-          className="grid gap-[1px] border border-line bg-line"
-          style={{ gridTemplateColumns: `repeat(${stored ? 4 : 3}, minmax(0, 1fr))` }}
+          className={clsx(
+            "grid gap-[1px] border border-line bg-line",
+            stored ? "grid-cols-2 md:grid-cols-4" : "grid-cols-3",
+          )}
         >
           <Tile id="protected" label="Protected" value={counts.green} tone="good" />
           <Tile id="stale" label="Stale" value={counts.yellow} tone="warn" />
@@ -143,7 +146,7 @@ export function Overview() {
         </div>
 
         <div>
-          <div className="flex items-baseline justify-between">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4">
             <Eyebrow>Snapshots · last 24 h</Eyebrow>
             <span className="font-mono text-[12px] text-muted">
               {last24h.completed} completed · {last24h.failed} failed
@@ -184,7 +187,7 @@ export function Overview() {
       </section>
 
       <section className="flex flex-col">
-        <div className="flex justify-between border-b border-line-strong pb-[6px]">
+        <div data-testid="devices-head" className="flex justify-between gap-4 border-b border-line-strong pb-[6px]">
           <Eyebrow>Devices</Eyebrow>
           <Eyebrow>last 30 days</Eyebrow>
         </div>
