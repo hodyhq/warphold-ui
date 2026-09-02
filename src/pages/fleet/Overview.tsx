@@ -2,41 +2,14 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import clsx from "clsx";
 import { Button, Eyebrow, HealthBar, Kpi, Strip, toneText } from "../../design/components";
-import type { KpiProps, StripTone, Tone } from "../../design/components";
+import type { KpiProps } from "../../design/components";
 import { fleet } from "../../api/fleet";
-import type { Health, Overview as OverviewData, OverviewBucket } from "../../api/types";
+import type { Overview as OverviewData, OverviewBucket } from "../../api/types";
+import { splitBytes } from "../../lib/format";
+import { HEALTH_TEXT, HEALTH_TONE } from "./health";
 
 /** How often the dashboard re-reads the fleet. */
 const POLL_MS = 30_000;
-
-/** The bar and the strip carry the health color; unknown reads as "no data". */
-const HEALTH_TONE: Record<Health, StripTone> = {
-  green: "good",
-  yellow: "warn",
-  red: "bad",
-  unknown: "none",
-  revoked: "none",
-};
-
-const HEALTH_TEXT: Record<Health, Tone | "ink"> = {
-  green: "good",
-  yellow: "warn",
-  red: "bad",
-  unknown: "ink",
-  revoked: "ink",
-};
-
-/** Bytes split into value and unit, the way the Stored tile shows them. */
-function splitBytes(n: number): [string, string] {
-  const units = ["B", "KB", "MB", "GB", "TB", "PB"];
-  let value = n;
-  let i = 0;
-  while (value >= 1000 && i < units.length - 1) {
-    value /= 1000;
-    i++;
-  }
-  return [i === 0 ? String(Math.round(value)) : value.toFixed(1), units[i]];
-}
 
 function hourLabel(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });

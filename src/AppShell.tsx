@@ -4,6 +4,8 @@ import App from "./App.jsx";
 import { detectMode, type ModeInfo } from "./mode";
 import { fleet } from "./api/fleet";
 import { Button, Nav, type NavItem } from "./design/components";
+import { Device } from "./pages/fleet/Device";
+import { Devices } from "./pages/fleet/Devices";
 import { Login } from "./pages/fleet/Login";
 import { Mark } from "./pages/fleet/Mark";
 import { Overview } from "./pages/fleet/Overview";
@@ -88,8 +90,8 @@ function FleetRoutes({ activated }: { activated: boolean }) {
           whole shell is replaced by a redirect to it. */}
       <Route element={activated ? <FleetLayout /> : <Navigate to="/fleet/activate" replace />}>
         <Route path="/fleet" element={<Overview />} />
-        <Route path="/fleet/devices" element={<Placeholder title="Devices" />} />
-        <Route path="/fleet/devices/:id" element={<Placeholder title="Device" />} />
+        <Route path="/fleet/devices" element={<Devices />} />
+        <Route path="/fleet/devices/:id" element={<Device />} />
         <Route path="/fleet/groups" element={<Placeholder title="Groups" />} />
         <Route path="/fleet/policies" element={<Placeholder title="Policy templates" />} />
         <Route path="/fleet/targets" element={<Placeholder title="Targets" />} />
