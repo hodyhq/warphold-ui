@@ -665,12 +665,7 @@ export class SetupRepository extends Component {
   }
 
   render() {
-    return (
-      <>
-        {this.renderInternal()}
-        {/* <pre className="debug-json">{JSON.stringify(this.state, null, 2)}</pre> */}
-      </>
-    );
+    return <>{this.renderInternal()}</>;
   }
 }
 
