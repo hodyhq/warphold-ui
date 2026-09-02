@@ -128,7 +128,10 @@ export class Logs extends Component {
       return (
         <div
           data-testid="task-logs"
-          className="max-h-[400px] overflow-auto border border-line bg-ground font-mono text-[11px] leading-[1.7]"
+          className={clsx(
+            "overflow-auto border border-line bg-ground font-mono text-[11px] leading-[1.7]",
+            this.props.className || "max-h-[400px]",
+          )}
         >
           {logs.map((v) => (
             <div
@@ -154,4 +157,6 @@ export class Logs extends Component {
 
 Logs.propTypes = {
   taskID: PropTypes.string.isRequired,
+  /** Overrides the panel's default max height. */
+  className: PropTypes.string,
 };
