@@ -489,10 +489,10 @@ export class Snapshots extends Component {
             <Button title="Synchronize" aria-label="Synchronize" onClick={this.sync} disabled={this.state.isRefreshing}>
               {this.state.isRefreshing ? <Spinner size={12} /> : <FontAwesomeIcon icon={faSync} />}
             </Button>
-            {/* An anchor, not a button: the upstream e2e clicks a[data-testid='new-snapshot']. */}
-            <a data-testid="new-snapshot" href="/snapshots/new" className={PRIMARY_LINK_BUTTON}>
+            {/* A link, not a button: the upstream e2e clicks a[data-testid='new-snapshot']. */}
+            <Link data-testid="new-snapshot" to="/snapshots/new" className={PRIMARY_LINK_BUTTON}>
               New Snapshot
-            </a>
+            </Link>
           </div>
         </div>
 

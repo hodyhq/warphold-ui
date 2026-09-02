@@ -30,7 +30,7 @@ function retentionSummary(retention) {
     [retention?.keepWeekly, "w"],
     [retention?.keepMonthly, "m"],
     [retention?.keepAnnual, "y"],
-  ].filter(([n]) => n);
+  ].filter(([n]) => n !== undefined && n !== null);
   return buckets.length ? "keep " + buckets.map(([n, unit]) => n + " " + unit).join(" / ") : "";
 }
 

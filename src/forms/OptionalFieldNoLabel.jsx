@@ -6,6 +6,7 @@ export function OptionalFieldNoLabel(component, label, name, props = {}, helpTex
   return (
     <FormField help={helpText} invalid={Boolean(invalidFeedback)} invalidFeedback={invalidFeedback}>
       <Control
+        invalid={Boolean(invalidFeedback)}
         name={name}
         value={stateProperty(component, name)}
         data-testid={"control-" + name}

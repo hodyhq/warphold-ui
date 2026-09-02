@@ -25,7 +25,9 @@ import { UIPreferencesContext } from "../contexts/UIPreferencesContext";
 function taskProgress(task) {
   const done = task.counters?.["Processed Bytes"]?.value;
   const total = task.counters?.["Estimated Bytes"]?.value;
-  if (!done || !total) {
+  // `done` of 0 against a positive total is a real 0% - only missing counters
+  // or a total we cannot divide by mean there is no progress to show.
+  if (done == null || !total || total <= 0) {
     return null;
   }
   return { done, total, percent: Math.min(100, Math.round((done * 100) / total)) };
@@ -207,11 +209,9 @@ export class Tasks extends Component {
     ];
 
     const running = items.filter((t) => t.status === "RUNNING" && this.taskMatches(t, true));
-    // Running tasks are shown as cards above, so the table below is the
-    // finished ones - unless the status filter explicitly asks for running.
-    const filteredItems = this.filterItems(
-      this.state.showStatus === "All" ? items.filter((t) => !running.includes(t)) : items,
-    );
+    // Running tasks are shown as cards above, so the table below is whatever is
+    // left - a task never appears in both views, whatever the status filter.
+    const filteredItems = this.filterItems(items.filter((t) => !running.includes(t)));
 
     return (
       <div className="flex flex-col gap-4">

@@ -559,6 +559,10 @@ describe("policySummaryLine", () => {
     ).toBe("every 1h · keep 24 h / 7 d · 3 excludes · zstd");
   });
 
+  test("keeps a retention bucket that is explicitly zero", () => {
+    expect(policySummaryLine({ retention: { keepLatest: 0, keepDaily: 7 } })).toBe("keep 0 latest / 7 d");
+  });
+
   test("reads a cron schedule when there is no interval", () => {
     expect(policySummaryLine({ scheduling: { cron: ["0 3 * * *"] } })).toBe("cron: 0 3 * * *");
   });

@@ -322,7 +322,7 @@ export function AgentHome() {
     );
   }
 
-  const protectedBytes = sources.reduce((sum, s) => sum + (s.lastSnapshot?.stats.totalSize ?? 0), 0);
+  const protectedBytes = sources.reduce((sum, s) => sum + (s.lastSnapshot?.stats?.totalSize ?? 0), 0);
   const [protectedValue, protectedUnit] = splitBytes(protectedBytes);
   // The soonest run across every source is what "Next" means to the reader.
   const nextAt = sources

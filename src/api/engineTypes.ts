@@ -28,7 +28,7 @@ export interface SnapshotManifest {
   source: SourceInfo;
   startTime: string;
   endTime: string;
-  stats: SnapshotStats;
+  stats?: SnapshotStats;
   /** Non-empty when the snapshot did not finish; such a run is not "good". */
   incomplete?: string;
 }

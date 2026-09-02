@@ -159,9 +159,10 @@ describe("Tasks component", () => {
 
     await userEvent.selectOptions(screen.getByLabelText("Status"), "Running");
 
-    // Filtering to Running puts them back in the table alongside their cards.
+    // Filtering to Running leaves only the card - a task is never in both views.
     expect(screen.queryByText("Task 1")).not.toBeInTheDocument();
-    expect(screen.getByRole("table")).toHaveTextContent("Task 2");
+    expect(screen.getByTestId("running-task")).toHaveTextContent("Task 2");
+    expect(screen.getByRole("table")).not.toHaveTextContent("Task 2");
     expect(screen.queryByText("Task 3")).not.toBeInTheDocument();
   });
 
@@ -291,9 +292,9 @@ describe("Tasks component", () => {
     await userEvent.selectOptions(screen.getByLabelText("Status"), "Running");
     await userEvent.selectOptions(screen.getByLabelText("Kind"), "Snapshot");
 
-    // Should only show task2 (Snapshot + Running)
-    const rows = screen.getByRole("table").querySelectorAll("tbody tr");
-    expect(rows).toHaveLength(1);
+    // Only task2 matches (Snapshot + Running), and it is a card, not a row.
+    expect(screen.getAllByTestId("running-task")).toHaveLength(1);
+    expect(screen.getByRole("table").querySelectorAll("tbody tr")).toHaveLength(0);
   });
 
   test("handles API error gracefully", async () => {
@@ -418,6 +419,37 @@ describe("Tasks component", () => {
         "aria-valuenow",
         "39",
       );
+    });
+
+    test("shows a zero-length bar before the first byte is processed", async () => {
+      axiosMock.onGet("/api/v1/tasks").reply(200, {
+        tasks: [
+          runningTask({
+            "Processed Bytes": { value: 0, units: "bytes" },
+            "Estimated Bytes": { value: 3_100_000_000, units: "bytes" },
+          }),
+        ],
+      });
+
+      renderTasks();
+
+      const card = await screen.findByTestId("running-task");
+      expect(card).toHaveTextContent("0%");
+      expect(screen.getByRole("progressbar", { name: "Progress of Backing up /home/user" })).toHaveAttribute(
+        "aria-valuenow",
+        "0",
+      );
+    });
+
+    test("shows no bar when the estimate is missing", async () => {
+      axiosMock.onGet("/api/v1/tasks").reply(200, {
+        tasks: [runningTask({ "Processed Bytes": { value: 12, units: "bytes" } })],
+      });
+
+      renderTasks();
+
+      await screen.findByTestId("running-task");
+      expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
     });
 
     test("falls back to the server's progress line when there are no byte counters", async () => {

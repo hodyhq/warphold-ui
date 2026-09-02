@@ -33,9 +33,9 @@ export function OptionalDirectory(component, label, name, props = {}) {
   const inputID = "directoryInput-" + name;
 
   return (
-    <FieldFrame className="required">
+    <FieldFrame>
       {label && (
-        <label htmlFor={inputID} className="required">
+        <label htmlFor={inputID}>
           <Eyebrow>{label}</Eyebrow>
         </label>
       )}

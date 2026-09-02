@@ -2,7 +2,7 @@ import { faCopy } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import axios from "axios";
 import React, { Component } from "react";
-import { useNavigate, useLocation, useParams } from "react-router";
+import { Link, useNavigate, useLocation, useParams } from "react-router";
 import { Button, Input, Spinner } from "../design/components";
 import { DirectoryItems } from "../components/DirectoryItems";
 import { CLIEquivalent } from "../components/CLIEquivalent";
@@ -164,10 +164,10 @@ class SnapshotDirectoryInternal extends Component {
           ) : (
             <Button onClick={this.mount}>Mount as Local Filesystem</Button>
           )}
-          {/* An anchor, not a button: the upstream e2e follows /snapshots/dir/ links. */}
-          <a href={"/snapshots/dir/" + this.props.params.oid + "/restore"} className={PRIMARY_LINK_BUTTON}>
+          {/* A link, not a button: the upstream e2e follows /snapshots/dir/ links. */}
+          <Link to={"/snapshots/dir/" + this.props.params.oid + "/restore"} className={PRIMARY_LINK_BUTTON}>
             Restore Files &amp; Directories
-          </a>
+          </Link>
         </div>
         <p className="m-0 text-muted">
           You can mount/restore all the files &amp; directories that you see below or restore files individually.

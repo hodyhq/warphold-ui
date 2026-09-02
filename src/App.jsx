@@ -161,7 +161,7 @@ export default class App extends Component {
                         title={locked ? "Repository is not connected" : undefined}
                       >
                         {item.label}
-                        {item.testid === "tab-tasks" && runningTaskCount > 0 && <>({runningTaskCount})</>}
+                        {item.testid === "tab-tasks" && runningTaskCount > 0 && <> ({runningTaskCount})</>}
                       </NavLink>
                     );
                   })}
