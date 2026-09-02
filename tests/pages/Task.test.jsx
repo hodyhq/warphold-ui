@@ -110,6 +110,27 @@ describe("Task component", () => {
     expect(screen.getByText("bytes")).toBeInTheDocument();
   });
 
+  test("shows a placeholder instead of an invalid date when a task has no endTime", async () => {
+    const runningTask = {
+      id: "123",
+      kind: "Snapshot",
+      description: "Backing up /home/user",
+      status: "RUNNING",
+      startTime: "2023-01-01T10:00:00Z",
+      // endTime omitted, as the server does for a task still in progress.
+      progressInfo: "50% complete",
+      counters: {},
+    };
+
+    axiosMock.onGet("/api/v1/tasks/123").reply(200, runningTask);
+
+    renderTask();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Finished")).toHaveValue("—");
+    });
+  });
+
   test("displays successful task", async () => {
     const successTask = {
       id: "123",

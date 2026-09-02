@@ -1,10 +1,10 @@
 import React from "react";
-import Col from "react-bootstrap/Col";
+import { Col } from "../Layout";
 import PropTypes from "prop-types";
 
 export function ValueColumn(props) {
   return (
-    <Col xs={12} sm={4} className="policyValue">
+    <Col sm={4} data-testid="policy-value">
       {props.children}
     </Col>
   );

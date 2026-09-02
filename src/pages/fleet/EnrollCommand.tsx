@@ -65,8 +65,8 @@ export function EnrollCommand({ token, origin = window.location.origin }: Enroll
     <div className="flex flex-col gap-[14px]">
       <CopyField label="Run on the machine" value={enrollCommand(origin)} className="text-ember-hover" />
       <p className="text-dim m-0 font-mono text-[11px] leading-[1.6]">
-        The script asks for the token and reads it with the terminal echo off, so it never lands in the shell history
-        of the machine being enrolled.
+        The script asks for the token and reads it with the terminal echo off, so it never lands in the shell history of
+        the machine being enrolled.
       </p>
       <CopyField label="Enrollment token" value={token} />
       <details className="text-dim font-mono text-[11px] leading-[1.6]">

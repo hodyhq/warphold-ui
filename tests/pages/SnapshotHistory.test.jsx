@@ -49,8 +49,7 @@ describe("SnapshotHistory", () => {
     axios.get.mockImplementation(() => new Promise(() => {})); // Never resolves
     renderWithProviders(<SnapshotHistory />);
 
-    // Look for Bootstrap spinner div
-    expect(document.querySelector(".spinner-border")).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Loading" })).toBeInTheDocument();
   });
 
   it("should fetch and display snapshots on mount", async () => {
@@ -84,7 +83,7 @@ describe("SnapshotHistory", () => {
     renderWithProviders(<SnapshotHistory />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Displaying.*1.*snapshots/)).toBeInTheDocument();
+      expect(screen.getByText(/1 snapshots/)).toBeInTheDocument();
     });
 
     // Check that basic elements are rendered
@@ -145,7 +144,7 @@ describe("SnapshotHistory", () => {
     renderWithProviders(<SnapshotHistory />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Displaying.*0.*snapshots/)).toBeInTheDocument();
+      expect(screen.getByText(/0 snapshots/)).toBeInTheDocument();
     });
   });
 
@@ -276,7 +275,7 @@ describe("SnapshotHistory", () => {
     renderWithProviders(<SnapshotHistory />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Displaying.*2.*snapshots/)).toBeInTheDocument();
+      expect(screen.getByText(/2 snapshots/)).toBeInTheDocument();
     });
   });
 
@@ -398,7 +397,7 @@ describe("SnapshotHistory", () => {
       renderWithProviders(<SnapshotHistory />);
 
       await waitFor(() => {
-        expect(screen.getByText(/Displaying.*2.*snapshots/)).toBeInTheDocument();
+        expect(screen.getByText(/2 snapshots/)).toBeInTheDocument();
       });
     });
 
@@ -551,5 +550,67 @@ describe("SnapshotHistory", () => {
 
       // This test will fail until we add proper null checks for pins
     });
+
+    it("should handle missing retention field when omitzero omits it", async () => {
+      // Simulate omitzero scenario where retention field is omitted
+      const mockResponse = {
+        data: {
+          snapshots: [
+            {
+              id: "snap1",
+              startTime: "2023-01-01T12:00:00Z",
+              rootID: "root1",
+              summary: {
+                size: 104857600,
+                files: 100,
+                dirs: 10,
+              },
+              // retention field is omitted due to omitzero
+              pins: [],
+            },
+          ],
+          unfilteredCount: 1,
+          uniqueCount: 1,
+        },
+      };
+
+      axios.get.mockResolvedValue(mockResponse);
+      renderWithProviders(<SnapshotHistory />);
+
+      // Should not throw when trying to map over a missing retention list
+      await waitFor(() => {
+        expect(screen.getByRole("table")).toBeInTheDocument();
+      });
+    });
+  });
+});
+
+describe("SnapshotHistory - counts the server did not send", () => {
+  it("never renders 'undefined' when unfilteredCount is missing", async () => {
+    axios.get.mockResolvedValue({
+      data: {
+        // No unfilteredCount and no uniqueCount, which some responses omit.
+        snapshots: [
+          {
+            id: "snap-1",
+            startTime: "2023-01-01T10:00:00Z",
+            rootID: "k123",
+            retention: ["latest-1"],
+            summary: { size: 1024, files: 1, dirs: 1 },
+            pins: [],
+          },
+        ],
+      },
+    });
+
+    const { container } = renderWithProviders(<SnapshotHistory />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/1 snapshots/)).toBeInTheDocument();
+    });
+
+    expect(container.textContent).not.toContain("undefined");
+    // The "show all individual snapshots" toggle has no count to offer either.
+    expect(screen.queryByText(/individual snapshots/)).not.toBeInTheDocument();
   });
 });

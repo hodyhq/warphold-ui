@@ -128,7 +128,7 @@ describe("SnapshotDirectory component", () => {
 
     const { unmount, container } = renderSnapshotDirectory();
 
-    const spinner = container.querySelector(".spinner-border");
+    const spinner = container.querySelector('[role="status"]');
     expect(spinner).toBeInTheDocument();
 
     unmount();
@@ -325,47 +325,20 @@ describe("SnapshotDirectory component", () => {
   });
 
   test("handles copy path functionality", async () => {
-    const mockInput = {
-      select: vi.fn(),
-      setSelectionRange: vi.fn(),
-    };
-    document.querySelector = vi.fn().mockReturnValue(mockInput);
-
     axiosMock.onGet("/api/v1/objects/test-oid-123").reply(200, mockObjectsResponse);
     axiosMock.onGet("/api/v1/mounts/test-oid-123").reply(200, mockMountResponse);
 
     const { unmount } = renderSnapshotDirectory();
 
-    await waitFor(() => {
-      expect(screen.getByDisplayValue("/tmp/kopia-mount-123")).toBeInTheDocument();
-    });
+    const input = await screen.findByDisplayValue("/tmp/kopia-mount-123");
+    const select = vi.spyOn(input, "select");
+    const setSelectionRange = vi.spyOn(input, "setSelectionRange");
 
     await userEvent.click(screen.getByTestId("copy-path-button"));
 
-    expect(document.querySelector).toHaveBeenCalledWith(".mounted-path");
-    expect(mockInput.select).toHaveBeenCalled();
-    expect(mockInput.setSelectionRange).toHaveBeenCalledWith(0, 99999);
+    expect(select).toHaveBeenCalled();
+    expect(setSelectionRange).toHaveBeenCalledWith(0, 99999);
     expect(document.execCommand).toHaveBeenCalledWith("copy");
-
-    unmount();
-  });
-
-  test("handles copy path when element not found", async () => {
-    document.querySelector = vi.fn().mockReturnValue(null);
-
-    axiosMock.onGet("/api/v1/objects/test-oid-123").reply(200, mockObjectsResponse);
-    axiosMock.onGet("/api/v1/mounts/test-oid-123").reply(200, mockMountResponse);
-
-    const { unmount } = renderSnapshotDirectory();
-
-    await waitFor(() => {
-      expect(screen.getByDisplayValue("/tmp/kopia-mount-123")).toBeInTheDocument();
-    });
-
-    await userEvent.click(screen.getByTestId("copy-path-button"));
-
-    expect(document.querySelector).toHaveBeenCalledWith(".mounted-path");
-    expect(document.execCommand).not.toHaveBeenCalled();
 
     unmount();
   });

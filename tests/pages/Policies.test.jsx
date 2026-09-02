@@ -3,7 +3,7 @@ import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BrowserRouter } from "react-router";
-import { Policies, PoliciesInternal } from "../../src/pages/Policies";
+import { Policies, PoliciesInternal, policySummaryLine } from "../../src/pages/Policies";
 import { AppContext } from "../../src/contexts/AppContext";
 import { UIPreferencesContext } from "../../src/contexts/UIPreferencesContext";
 import { setupAPIMock } from "../testutils/api-mocks";
@@ -44,7 +44,7 @@ const samplePolicies = [
     target: { userName: "testuser", host: "testhost", path: "/home/testuser" },
     policy: {
       retention: { keepLatest: 10 },
-      scheduling: { interval: "1h" },
+      scheduling: { intervalSeconds: 3600 },
     },
   },
   {
@@ -63,7 +63,7 @@ const samplePolicies = [
     target: { userName: "", host: "", path: "" },
     policy: {
       retention: { keepLatest: 30 },
-      scheduling: { interval: "24h" },
+      scheduling: { intervalSeconds: 86400 },
     },
   },
 ];
@@ -155,19 +155,14 @@ describe("Policies component - loaded state", () => {
     });
   });
 
-  test("displays policies table with correct headers", async () => {
+  test("displays one card per policy", async () => {
     renderWithProviders(<Policies />);
 
     await waitFor(() => {
       expect(screen.getByText("Found 4 policies matching criteria.")).toBeInTheDocument();
     });
 
-    // Check table headers
-    expect(screen.getByText("Username")).toBeInTheDocument();
-    expect(screen.getByText("Host")).toBeInTheDocument();
-    expect(screen.getByText("Path")).toBeInTheDocument();
-    expect(screen.getByText("Defined")).toBeInTheDocument();
-    expect(screen.getByText("Actions")).toBeInTheDocument();
+    expect(screen.getAllByTestId("policy-card")).toHaveLength(4);
   });
 
   test("displays CLI equivalent component", async () => {
@@ -178,12 +173,15 @@ describe("Policies component - loaded state", () => {
     });
   });
 
-  test("shows page size dropdown from KopiaTable", async () => {
+  test("does not page a card grid", async () => {
     renderWithProviders(<Policies />);
 
     await waitFor(() => {
-      expect(screen.getByText("Page Size: 10")).toBeInTheDocument();
+      expect(screen.getAllByTestId("policy-card")).toHaveLength(4);
     });
+
+    expect(screen.queryByLabelText("Page size")).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Pagination" })).not.toBeInTheDocument();
   });
 });
 
@@ -215,12 +213,7 @@ describe("Policies component - policy filtering", () => {
       expect(screen.getByText("Found 4 policies matching criteria.")).toBeInTheDocument();
     });
 
-    // Click dropdown and select Global Policy
-    const dropdown = screen.getByRole("button", { name: /Applicable Policies/ });
-    await userEvent.click(dropdown);
-
-    const globalPolicyOption = screen.getByText("Global Policy");
-    await userEvent.click(globalPolicyOption);
+    await userEvent.selectOptions(screen.getByLabelText("Show policies for"), "Global Policy");
 
     await waitFor(() => {
       expect(screen.getByText("Found 1 policies matching criteria.")).toBeInTheDocument();
@@ -234,12 +227,7 @@ describe("Policies component - policy filtering", () => {
       expect(screen.getByText("Found 4 policies matching criteria.")).toBeInTheDocument();
     });
 
-    // Click dropdown and select All Policies
-    const dropdown = screen.getByRole("button", { name: /Applicable Policies/ });
-    await userEvent.click(dropdown);
-
-    const allPoliciesOption = screen.getByText("All Policies");
-    await userEvent.click(allPoliciesOption);
+    await userEvent.selectOptions(screen.getByLabelText("Show policies for"), "All Policies");
 
     await waitFor(() => {
       expect(screen.getByText("Found 4 policies matching criteria.")).toBeInTheDocument();
@@ -253,12 +241,7 @@ describe("Policies component - policy filtering", () => {
       expect(screen.getByText("Found 4 policies matching criteria.")).toBeInTheDocument();
     });
 
-    // Click dropdown and select Per-User Policies
-    const dropdown = screen.getByRole("button", { name: /Applicable Policies/ });
-    await userEvent.click(dropdown);
-
-    const perUserPoliciesOption = screen.getByText("Per-User Policies");
-    await userEvent.click(perUserPoliciesOption);
+    await userEvent.selectOptions(screen.getByLabelText("Show policies for"), "Per-User Policies");
 
     await waitFor(() => {
       expect(screen.getByText("No policies found.")).toBeInTheDocument();
@@ -272,12 +255,7 @@ describe("Policies component - policy filtering", () => {
       expect(screen.getByText("Found 4 policies matching criteria.")).toBeInTheDocument();
     });
 
-    // Click dropdown and select Per-Host Policies
-    const dropdown = screen.getByRole("button", { name: /Applicable Policies/ });
-    await userEvent.click(dropdown);
-
-    const perHostPoliciesOption = screen.getByText("Per-Host Policies");
-    await userEvent.click(perHostPoliciesOption);
+    await userEvent.selectOptions(screen.getByLabelText("Show policies for"), "Per-Host Policies");
 
     await waitFor(() => {
       expect(screen.getByText("Found 1 policies matching criteria.")).toBeInTheDocument();
@@ -382,12 +360,7 @@ describe("Policies component - policy path input", () => {
       expect(screen.getByPlaceholderText("enter directory to find or set policy")).toBeInTheDocument();
     });
 
-    // Switch to "All Policies"
-    const dropdown = screen.getByRole("button", { name: /Applicable Policies/ });
-    await userEvent.click(dropdown);
-
-    const allPoliciesOption = screen.getByText("All Policies");
-    await userEvent.click(allPoliciesOption);
+    await userEvent.selectOptions(screen.getByLabelText("Show policies for"), "All Policies");
 
     await waitFor(() => {
       expect(screen.queryByPlaceholderText("enter directory to find or set policy")).not.toBeInTheDocument();
@@ -466,12 +439,7 @@ describe("Policies component - no policies state", () => {
       expect(pathInput).toBeInTheDocument();
     });
 
-    // Switch to Local Path Policies
-    const dropdown = screen.getByRole("button", { name: /Applicable Policies/ });
-    await userEvent.click(dropdown);
-
-    const localPoliciesOption = screen.getByText("Local Path Policies");
-    await userEvent.click(localPoliciesOption);
+    await userEvent.selectOptions(screen.getByLabelText("Show policies for"), "Local Path Policies");
 
     // Enter a path
     const pathInput = screen.getByPlaceholderText("enter directory to find or set policy");
@@ -534,14 +502,20 @@ describe("Policies component - policy summary", () => {
     });
   });
 
-  test("displays policy badges for defined policies", async () => {
+  test("summarises what each policy keeps", async () => {
     renderWithProviders(<Policies />);
 
     await waitFor(() => {
-      // Check for policy badges (retention, scheduling, etc.)
-      expect(screen.getAllByText("retention")).toHaveLength(4);
-      expect(screen.getAllByText("scheduling")).toHaveLength(2);
+      expect(screen.getAllByTestId("policy-card")).toHaveLength(4);
     });
+
+    // Every fixture sets keepLatest; two also set an interval.
+    expect(screen.getAllByText("every 1h · keep 10 latest")).toHaveLength(1);
+    expect(screen.getAllByText("every 1d · keep 30 latest")).toHaveLength(1);
+    expect(screen.getAllByText(/keep 10 latest/)).toHaveLength(1);
+    expect(screen.getAllByText(/keep 5 latest/)).toHaveLength(1);
+    expect(screen.getAllByText(/keep 20 latest/)).toHaveLength(1);
+    expect(screen.getAllByText(/keep 30 latest/)).toHaveLength(1);
   });
 
   test("shows edit buttons for each policy", async () => {
@@ -553,20 +527,56 @@ describe("Policies component - policy summary", () => {
     });
   });
 
-  test("displays correct policy data in table", async () => {
+  test("displays correct policy data on the cards", async () => {
     renderWithProviders(<Policies />);
 
     await waitFor(() => {
-      // Check some policy data
-      expect(screen.getAllByText("testuser")).toHaveLength(2);
-      expect(screen.getAllByText("testhost")).toHaveLength(3);
       expect(screen.getByText("/home/testuser")).toBeInTheDocument();
-      expect(screen.getByText("/documents")).toBeInTheDocument();
-      // Check for asterisks representing empty/global values
-      // Global policy: *, *, * (3 asterisks)
-      // Host policy: *, testhost, * (2 asterisks)
-      // Total: 5 asterisks
-      expect(screen.getAllByText("*")).toHaveLength(5);
     });
+
+    expect(screen.getByText("/documents")).toBeInTheDocument();
+    // A policy with no path covers a whole host, or everything.
+    expect(screen.getByText("All paths on testhost")).toBeInTheDocument();
+    expect(screen.getByText("Global defaults")).toBeInTheDocument();
+    // `*` stands in for "any user" / "any host" in the identity line. Scoped to
+    // the cards: "testuser@testhost" is also an option in the owner filter.
+    const identities = screen.getAllByTestId("policy-card").map((c) => c.children[1].textContent);
+    expect(identities.filter((t) => t === "testuser@testhost")).toHaveLength(2);
+    expect(screen.getByText("*@testhost")).toBeInTheDocument();
+    expect(screen.getByText("*@*")).toBeInTheDocument();
+  });
+});
+
+describe("policySummaryLine", () => {
+  test("joins schedule, retention, excludes and compression", () => {
+    expect(
+      policySummaryLine({
+        scheduling: { intervalSeconds: 3600 },
+        retention: { keepHourly: 24, keepDaily: 7 },
+        files: { ignore: ["a", "b", "c"] },
+        compression: { compressorName: "zstd" },
+      }),
+    ).toBe("every 1h · keep 24 h / 7 d · 3 excludes · zstd");
+  });
+
+  test("keeps a retention bucket that is explicitly zero", () => {
+    expect(policySummaryLine({ retention: { keepLatest: 0, keepDaily: 7 } })).toBe("keep 0 latest / 7 d");
+  });
+
+  test("reads a cron schedule when there is no interval", () => {
+    expect(policySummaryLine({ scheduling: { cron: ["0 3 * * *"] } })).toBe("cron: 0 3 * * *");
+  });
+
+  test("reads times of day when there is no interval", () => {
+    expect(policySummaryLine({ scheduling: { timeOfDay: [{ hour: 3, min: 0 }] } })).toBe("3:00");
+  });
+
+  test("says manual when the policy never runs on its own", () => {
+    expect(policySummaryLine({ scheduling: { manual: true } })).toBe("manual only");
+  });
+
+  test("says so when a policy defines nothing of its own", () => {
+    expect(policySummaryLine({})).toBe("inherits from parent");
+    expect(policySummaryLine(undefined)).toBe("inherits from parent");
   });
 });

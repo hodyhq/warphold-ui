@@ -1,18 +1,87 @@
-import { faInfoCircle } from "@fortawesome/free-solid-svg-icons";
+import { faInfoCircle, faStopCircle } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import axios from "axios";
 import moment from "moment";
 import React, { Component } from "react";
-import Alert from "react-bootstrap/Alert";
-import Col from "react-bootstrap/Col";
-import Dropdown from "react-bootstrap/Dropdown";
-import Form from "react-bootstrap/Form";
-import Row from "react-bootstrap/Row";
+import { Button, Card, Eyebrow, Input, Select } from "../design/components";
+import { Col, Row } from "../components/Layout";
 import { Link } from "react-router";
+import PropTypes from "prop-types";
 import { handleChange } from "../forms";
 import KopiaTable from "../components/KopiaTable";
+import { Logs } from "../components/Logs";
+import { formatDuration, sizeDisplayName } from "../utils/formatutils";
 import { redirect } from "../utils/uiutil";
-import { taskStatusSymbol } from "../utils/taskutil";
+import { cancelTask, taskStatusSymbol } from "../utils/taskutil";
+import { UIPreferencesContext } from "../contexts/UIPreferencesContext";
+
+/**
+ * How far a running task has got, from the counters the server already
+ * reports. Snapshot uploads publish "Processed Bytes" against
+ * "Estimated Bytes" (see snapshot/upload/upload_progress.go); tasks that
+ * publish neither - maintenance, say - get no percentage and no bar, only
+ * the server's own progressInfo line.
+ */
+function taskProgress(task) {
+  const done = task.counters?.["Processed Bytes"]?.value;
+  const total = task.counters?.["Estimated Bytes"]?.value;
+  // `done` of 0 against a positive total is a real 0% - only missing counters
+  // or a total we cannot divide by mean there is no progress to show.
+  if (done == null || !total || total <= 0) {
+    return null;
+  }
+  return { done, total, percent: Math.min(100, Math.round((done * 100) / total)) };
+}
+
+/** The card Solo.dc.html puts above the list for whatever is running now. */
+function RunningTask({ task, bytesStringBase2 }) {
+  const progress = taskProgress(task);
+
+  return (
+    <Card data-testid="running-task" className="gap-[10px] border-ember">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="font-semibold">
+          {task.kind} {task.description}
+        </span>
+        <span className="flex items-center gap-[14px]">
+          <span className="font-mono text-[12px] text-ember">
+            {progress ? progress.percent + "% · " : ""}
+            {formatDuration(task.startTime, null, true)} elapsed
+          </span>
+          <Button onClick={() => cancelTask(task.id)}>
+            <FontAwesomeIcon icon={faStopCircle} /> Cancel
+          </Button>
+        </span>
+      </div>
+      {progress ? (
+        <>
+          <div className="h-[6px] overflow-hidden rounded-[3px] bg-line">
+            <div
+              role="progressbar"
+              aria-label={"Progress of " + task.description}
+              aria-valuenow={progress.percent}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              className="h-full bg-ember"
+              style={{ width: progress.percent + "%" }}
+            />
+          </div>
+          <span className="font-mono text-[12px] text-muted">
+            {sizeDisplayName(progress.done, bytesStringBase2)} of {sizeDisplayName(progress.total, bytesStringBase2)}
+          </span>
+        </>
+      ) : (
+        task.progressInfo && <span className="font-mono text-[12px] text-muted">{task.progressInfo}</span>
+      )}
+      <Logs taskID={task.id} className="max-h-[140px]" />
+    </Card>
+  );
+}
+
+RunningTask.propTypes = {
+  task: PropTypes.object.isRequired,
+  bytesStringBase2: PropTypes.bool,
+};
 
 export class Tasks extends Component {
   constructor() {
@@ -74,12 +143,21 @@ export class Tasks extends Component {
       });
   }
 
-  taskMatches(t) {
+  /**
+   * `ignoreStatus` is for the running-task cards: they are the "what is
+   * happening now" band, so the status filter does not apply to them, but the
+   * kind and description filters still do.
+   */
+  taskMatches(t, ignoreStatus = false) {
     if (this.state.showKind !== "All" && t.kind !== this.state.showKind) {
       return false;
     }
 
-    if (this.state.showStatus !== "All" && t.status.toLowerCase() !== this.state.showStatus.toLowerCase()) {
+    if (
+      !ignoreStatus &&
+      this.state.showStatus !== "All" &&
+      t.status.toLowerCase() !== this.state.showStatus.toLowerCase()
+    ) {
       return false;
     }
 
@@ -121,78 +199,91 @@ export class Tasks extends Component {
       {
         header: "Kind",
         width: "",
-        cell: (x) => <p>{x.row.original.kind}</p>,
+        cell: (x) => <span>{x.row.original.kind}</span>,
       },
       {
         header: "Description",
         width: "",
-        cell: (x) => <p>{x.row.original.description}</p>,
+        cell: (x) => <span>{x.row.original.description}</span>,
       },
     ];
 
-    const filteredItems = this.filterItems(items);
+    const running = items.filter((t) => t.status === "RUNNING" && this.taskMatches(t, true));
+    // Running tasks are shown as cards above, so the table below is whatever is
+    // left - a task never appears in both views, whatever the status filter.
+    const filteredItems = this.filterItems(items.filter((t) => !running.includes(t)));
 
     return (
-      <>
-        <Form>
-          <div className="list-actions">
-            <Row>
-              <Col xs="auto">
-                <Dropdown>
-                  <Dropdown.Toggle size="sm" variant="primary">
-                    Status: {this.state.showStatus}
-                  </Dropdown.Toggle>
-                  <Dropdown.Menu>
-                    <Dropdown.Item onClick={() => this.setState({ showStatus: "All" })}>All</Dropdown.Item>
-                    <Dropdown.Divider />
-                    <Dropdown.Item onClick={() => this.setState({ showStatus: "Running" })}>Running</Dropdown.Item>
-                    <Dropdown.Item onClick={() => this.setState({ showStatus: "Failed" })}>Failed</Dropdown.Item>
-                  </Dropdown.Menu>
-                </Dropdown>
-              </Col>
-              <Col xs="auto">
-                <Dropdown>
-                  <Dropdown.Toggle size="sm" variant="primary">
-                    Kind: {this.state.showKind}
-                  </Dropdown.Toggle>
-                  <Dropdown.Menu>
-                    <Dropdown.Item onClick={() => this.setState({ showKind: "All" })}>All</Dropdown.Item>
-                    <Dropdown.Divider />
-                    {this.state.uniqueKinds.map((k) => (
-                      <Dropdown.Item key={k} onClick={() => this.setState({ showKind: k })}>
-                        {k}
-                      </Dropdown.Item>
-                    ))}
-                  </Dropdown.Menu>
-                </Dropdown>
-              </Col>
-              <Col xs="4">
-                <Form.Control
-                  size="sm"
-                  type="text"
-                  name="searchDescription"
-                  placeholder="case-sensitive search description"
-                  value={this.state.searchDescription}
-                  onChange={this.handleChange}
-                  autoFocus={true}
-                />
-              </Col>
-            </Row>
-          </div>
-          <Row>
-            <Col>
-              {!items.length ? (
-                <Alert variant="info">
-                  <FontAwesomeIcon size="sm" icon={faInfoCircle} /> A list of tasks will appear here when you create
-                  snapshots, restore, run maintenance, etc.
-                </Alert>
-              ) : (
-                <KopiaTable data={filteredItems} columns={columns} />
-              )}
-            </Col>
-          </Row>
-        </Form>
-      </>
+      <div className="flex flex-col gap-4">
+        <div>
+          <Eyebrow>Tasks</Eyebrow>
+          <h1 className="font-display m-0 mt-2 text-[36px] leading-none font-extrabold tracking-[-0.02em]">
+            {running.length} running
+          </h1>
+        </div>
+        <Row className="items-end">
+          <Col xs="auto">
+            <label className="flex flex-col gap-[6px]">
+              <Eyebrow>Status</Eyebrow>
+              <Select
+                className="py-[6px] text-[12px]"
+                value={this.state.showStatus}
+                onChange={(e) => this.setState({ showStatus: e.target.value })}
+              >
+                <option value="All">All</option>
+                <option value="Running">Running</option>
+                <option value="Failed">Failed</option>
+              </Select>
+            </label>
+          </Col>
+          <Col xs="auto">
+            <label className="flex flex-col gap-[6px]">
+              <Eyebrow>Kind</Eyebrow>
+              <Select
+                className="py-[6px] text-[12px]"
+                value={this.state.showKind}
+                onChange={(e) => this.setState({ showKind: e.target.value })}
+              >
+                <option value="All">All</option>
+                {this.state.uniqueKinds.map((k) => (
+                  <option key={k} value={k}>
+                    {k}
+                  </option>
+                ))}
+              </Select>
+            </label>
+          </Col>
+          <Col>
+            <label className="flex flex-col gap-[6px]">
+              <Eyebrow>Search</Eyebrow>
+              <Input
+                type="text"
+                name="searchDescription"
+                placeholder="case-sensitive search description"
+                value={this.state.searchDescription}
+                onChange={this.handleChange}
+                autoFocus={true}
+              />
+            </label>
+          </Col>
+        </Row>
+        {running.map((t) => (
+          <RunningTask key={t.id} task={t} bytesStringBase2={this.context.bytesStringBase2} />
+        ))}
+        {!items.length ? (
+          <Card>
+            <span className="text-muted">
+              <FontAwesomeIcon icon={faInfoCircle} /> A list of tasks will appear here when you create snapshots,
+              restore, run maintenance, etc.
+            </span>
+          </Card>
+        ) : (
+          <KopiaTable data={filteredItems} columns={columns} />
+        )}
+      </div>
     );
   }
 }
+
+// The running-task card shows byte counts, so it needs the byte-base preference.
+Tasks.contextType = UIPreferencesContext;

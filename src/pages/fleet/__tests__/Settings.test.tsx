@@ -30,9 +30,11 @@ const ADMINS: Admin[] = [
 
 beforeEach(() => {
   settings.mockReset().mockResolvedValue({ fleet_name: "home-fleet", poll_interval: 300 });
-  setSetting.mockReset().mockImplementation((key: string, value: unknown) =>
-    Promise.resolve({ fleet_name: "home-fleet", poll_interval: 300, [key]: value }),
-  );
+  setSetting
+    .mockReset()
+    .mockImplementation((key: string, value: unknown) =>
+      Promise.resolve({ fleet_name: "home-fleet", poll_interval: 300, [key]: value }),
+    );
   admins.mockReset().mockResolvedValue(ADMINS);
   inviteAdmin.mockReset().mockResolvedValue({ id: 3 });
   deleteAdmin.mockReset().mockResolvedValue(undefined);

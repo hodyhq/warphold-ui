@@ -2,7 +2,7 @@ import { faBan, faCheck, faExclamationCircle, faXmark } from "@fortawesome/free-
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import axios from "axios";
 import React from "react";
-import Spinner from "react-bootstrap/Spinner";
+import { Spinner } from "../design/components";
 import { formatDuration } from "./formatutils";
 
 export function cancelTask(tid) {
@@ -19,32 +19,38 @@ export function taskStatusSymbol(task) {
   switch (st) {
     case "RUNNING":
       return (
-        <>
-          <Spinner animation="border" variant="primary" size="sm" /> Running for {dur}
-          <button className="btn btn-sm btn-link" type="button" onClick={() => cancelTask(task.id)}>
-            <FontAwesomeIcon color="red" size="lg" title="Cancel task" icon={faXmark} />
+        <span className="inline-flex items-center gap-2">
+          <Spinner size={14} /> Running for {dur}
+          <button
+            className="cursor-pointer border-0 bg-transparent p-0 text-bad"
+            type="button"
+            title="Cancel task"
+            aria-label="Cancel task"
+            onClick={() => cancelTask(task.id)}
+          >
+            <FontAwesomeIcon size="lg" icon={faXmark} />
           </button>
-        </>
+        </span>
       );
     case "SUCCESS":
       return (
-        <p title={dur}>
-          <FontAwesomeIcon icon={faCheck} color="green" /> Finished in {dur}
-        </p>
+        <span title={dur} className="inline-flex items-center gap-2 text-good">
+          <FontAwesomeIcon icon={faCheck} /> Finished in {dur}
+        </span>
       );
 
     case "FAILED":
       return (
-        <p title={dur}>
-          <FontAwesomeIcon icon={faExclamationCircle} color="red" /> Failed after {dur}
-        </p>
+        <span title={dur} className="inline-flex items-center gap-2 text-bad">
+          <FontAwesomeIcon icon={faExclamationCircle} /> Failed after {dur}
+        </span>
       );
 
     case "CANCELED":
       return (
-        <p title={dur}>
+        <span title={dur} className="inline-flex items-center gap-2 text-muted">
           <FontAwesomeIcon icon={faBan} /> Canceled after {dur}
-        </p>
+        </span>
       );
 
     default:

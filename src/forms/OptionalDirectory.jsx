@@ -1,16 +1,15 @@
 import React from "react";
-import Button from "react-bootstrap/Button";
-import Form from "react-bootstrap/Form";
-import { Col, FormGroup, FormControl, InputGroup } from "react-bootstrap";
 import { faFolderOpen } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { stateProperty } from ".";
 import { setDeepStateProperty } from "../utils/deepstate";
+import { Button, Eyebrow } from "../design/components";
+import { Control, FieldFrame } from "./FormField";
 
 /**
  * This functions returns a directory selector that allows the user to select a directory.
- * The selections is invoked using a button that calls a functions within the electron app.
- * If the electron app is not present, the button is not visible.
+ * The selections is invoked using a button that calls a functions within the desktop app.
+ * If the desktop app is not present, the button is not visible.
  *
  * @param {*} component
  * The component that this function is called from
@@ -31,29 +30,31 @@ export function OptionalDirectory(component, label, name, props = {}) {
     setDeepStateProperty(component, name, path);
   }
 
+  const inputID = "directoryInput-" + name;
+
   return (
-    <FormGroup>
+    <FieldFrame>
       {label && (
-        <Form.Label htmlFor="directoryInput" className="required">
-          {label}
-        </Form.Label>
+        <label htmlFor={inputID}>
+          <Eyebrow>{label}</Eyebrow>
+        </label>
       )}
-      <InputGroup as={Col}>
-        <FormControl
-          id="directoryInput"
-          size="sm"
+      <div className="flex items-center gap-2">
+        <Control
+          id={inputID}
           name={name}
           value={stateProperty(component, name)}
           data-testid={"control-" + name}
           onChange={component.handleChange}
+          aria-label={label || "Directory path"}
           {...props}
-        ></FormControl>
+        />
         {window.kopiaUI && (
-          <Button size="sm" onClick={() => window.kopiaUI.selectDirectory(onDirectorySelected)}>
+          <Button title="Browse for a directory" onClick={() => window.kopiaUI.selectDirectory(onDirectorySelected)}>
             <FontAwesomeIcon icon={faFolderOpen} />
           </Button>
         )}
-      </InputGroup>
-    </FormGroup>
+      </div>
+    </FieldFrame>
   );
 }

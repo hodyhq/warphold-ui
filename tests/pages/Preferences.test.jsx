@@ -30,7 +30,7 @@ afterEach(() => {
 describe("Select the light theme", () => {
   test("Should select light theme", () => {
     userEvent.selectOptions(
-      screen.getByRole("combobox", { name: "Select theme" }),
+      screen.getByRole("combobox", { name: "Theme" }),
       screen.getByRole("option", { name: "light" }),
     );
 
@@ -43,7 +43,7 @@ describe("Select the light theme", () => {
  */
 describe("Test number of themes", () => {
   test("Should have four themes", () => {
-    let theme = screen.getByRole("combobox", { name: "Select theme" });
+    let theme = screen.getByRole("combobox", { name: "Theme" });
     expect(theme).toHaveLength(4);
   });
 });
@@ -53,9 +53,7 @@ describe("Test number of themes", () => {
  */
 describe("Test byte representation", () => {
   test("Should have two options", () => {
-    let theme = screen.getByRole("combobox", {
-      name: "Select byte representation",
-    });
+    let theme = screen.getByRole("combobox", { name: "Byte representation" });
     expect(theme).toHaveLength(2);
   });
 });

@@ -260,12 +260,15 @@ describe("TimesOfDayList", () => {
     expect(textarea.name).toBe("testField");
   });
 
-  it("displays validation feedback message", () => {
-    const { container } = render(<MockFormComponent fieldName="testField" />);
+  it("displays validation feedback only for an unparseable time", () => {
+    const valid = render(
+      <MockFormComponent fieldName="testField" initialState={{ testField: [{ hour: 9, min: 30 }] }} />,
+    );
+    expect(valid.queryByRole("alert")).toBeNull();
+    valid.unmount();
 
-    const feedback = container.querySelector(".invalid-feedback");
-    expect(feedback).toBeTruthy();
-    expect(feedback.textContent).toBe("Invalid Times of Day");
+    const invalid = render(<MockFormComponent fieldName="testField" initialState={{ testField: ["not a time"] }} />);
+    expect(invalid.queryByRole("alert").textContent).toBe("Invalid Times of Day");
   });
 
   it("updates display when component state changes", () => {

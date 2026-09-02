@@ -17,5 +17,15 @@ reviews:
       instructions: >-
         React 19 + TypeScript UI for WarpHold; new code is TypeScript; keep upstream
         data-testid attributes.
+    - path: "src/**/*.jsx"
+      instructions: >-
+        These files are inherited from upstream kopia/htmlui and intentionally stay
+        .jsx to keep upstream merges clean. Do not suggest converting them to
+        TypeScript/.tsx; review their logic only.
+    - path: "tests/**/*.jsx"
+      instructions: >-
+        These files are inherited from upstream kopia/htmlui and intentionally stay
+        .jsx to keep upstream merges clean. Do not suggest converting them to
+        TypeScript/.tsx; review their logic only.
 chat:
   auto_reply: true

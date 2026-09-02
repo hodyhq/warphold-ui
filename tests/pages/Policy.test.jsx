@@ -210,8 +210,7 @@ describe("Policy Component", () => {
       renderPolicyWithRouter(["/policy?userName=test&host=localhost&path=/home"]);
 
       // Check for header section
-      const header = screen.getByRole("heading", { level: 4 });
-      expect(header).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
 
       // Check for PolicyEditor
       expect(screen.getByTestId("policy-editor")).toBeInTheDocument();
@@ -220,12 +219,11 @@ describe("Policy Component", () => {
       expect(screen.getByTestId("cli-equivalent")).toBeInTheDocument();
     });
 
-    test("header contains go back button and policy type name", () => {
+    test("header shows the go back button and the policy type name", () => {
       renderPolicyWithRouter(["/policy?userName=user&host=host&path=/path"]);
 
-      const header = screen.getByRole("heading", { level: 4 });
-      expect(header).toContainElement(screen.getByTestId("go-back-button"));
-      expect(header).toHaveTextContent("Directory: user@host:/path");
+      expect(screen.getByTestId("go-back-button")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Directory: user@host:/path");
     });
   });
 

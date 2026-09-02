@@ -1,7 +1,7 @@
 import React from "react";
-import Form from "react-bootstrap/Form";
-import Col from "react-bootstrap/Col";
 import { stateProperty } from ".";
+import { Checkbox } from "../design/components";
+import { FieldFrame } from "./FormField";
 
 function checkedToBool(t) {
   if (t.checked) {
@@ -13,17 +13,15 @@ function checkedToBool(t) {
 
 export function RequiredBoolean(component, label, name, helpText) {
   return (
-    <Form.Group as={Col}>
-      <Form.Check
+    <FieldFrame className="required">
+      <Checkbox
         label={label}
         name={name}
-        className="required"
         checked={stateProperty(component, name)}
         onChange={(e) => component.handleChange(e, checkedToBool)}
         data-testid={"control-" + name}
-        type="checkbox"
       />
-      {helpText && <Form.Text className="text-muted">{helpText}</Form.Text>}
-    </Form.Group>
+      {helpText && <span className="text-[12px] text-dim">{helpText}</span>}
+    </FieldFrame>
   );
 }

@@ -27,7 +27,7 @@ describe("DirectoryBreadcrumbs", () => {
     renderWithRouter(<DirectoryBreadcrumbs />);
 
     // Should render the Breadcrumb container but no items
-    const breadcrumb = document.querySelector(".breadcrumb");
+    const breadcrumb = screen.getByRole("navigation", { name: "breadcrumb" });
     expect(breadcrumb).toBeInTheDocument();
     expect(breadcrumb.children).toHaveLength(0);
   });
@@ -47,8 +47,7 @@ describe("DirectoryBreadcrumbs", () => {
     expect(screen.getByText("Home")).toBeInTheDocument();
 
     // Current item should be active (not clickable)
-    const breadcrumbItem = screen.getByText("Home").closest(".breadcrumb-item");
-    expect(breadcrumbItem).toHaveClass("active");
+    expect(screen.getByText("Home")).toHaveAttribute("aria-current", "page");
   });
 
   it("renders multiple breadcrumb items with navigation chain", () => {
@@ -77,15 +76,10 @@ describe("DirectoryBreadcrumbs", () => {
     expect(screen.getByText("Parent Directory")).toBeInTheDocument();
     expect(screen.getByText("Current Directory")).toBeInTheDocument();
 
-    // Only the current (last) item should be active
-    const currentItem = screen.getByText("Current Directory").closest(".breadcrumb-item");
-    expect(currentItem).toHaveClass("active");
-
-    const parentItem = screen.getByText("Parent Directory").closest(".breadcrumb-item");
-    expect(parentItem).not.toHaveClass("active");
-
-    const rootItem = screen.getByText("Root").closest(".breadcrumb-item");
-    expect(rootItem).not.toHaveClass("active");
+    // Only the current (last) item is the current page
+    expect(screen.getByText("Current Directory")).toHaveAttribute("aria-current", "page");
+    expect(screen.getByText("Parent Directory")).not.toHaveAttribute("aria-current");
+    expect(screen.getByText("Root")).not.toHaveAttribute("aria-current");
   });
 
   it("handles navigation when clicking on breadcrumb items", () => {
@@ -268,9 +262,7 @@ describe("DirectoryBreadcrumbs", () => {
 
     renderWithRouter(<DirectoryBreadcrumbs />);
 
-    const breadcrumbItems = document.querySelectorAll(".breadcrumb-item");
-    expect(breadcrumbItems[0]).toHaveTextContent("First");
-    expect(breadcrumbItems[1]).toHaveTextContent("Second");
-    expect(breadcrumbItems[2]).toHaveTextContent("Third");
+    const nav = screen.getByRole("navigation", { name: "breadcrumb" });
+    expect(nav).toHaveTextContent("First/Second/Third");
   });
 });

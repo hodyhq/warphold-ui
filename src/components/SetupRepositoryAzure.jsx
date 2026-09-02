@@ -1,5 +1,5 @@
 import React, { Component } from "react";
-import Row from "react-bootstrap/Row";
+import { Row } from "./Layout";
 import { handleChange, validateRequiredFields } from "../forms";
 import { OptionalField } from "../forms/OptionalField";
 import { RequiredField } from "../forms/RequiredField";

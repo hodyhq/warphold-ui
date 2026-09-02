@@ -103,7 +103,10 @@ describe("Activate", () => {
     await waitFor(() => expect(login).toHaveBeenCalledWith("admin@example.com", "pw12345678"));
     expect(createTarget).toHaveBeenCalledWith({ name: "tank", kind: "filesystem", path: "/tank/warphold" });
     expect(createTemplate).toHaveBeenCalledWith(
-      expect.objectContaining({ sources: ["~"], policy: expect.objectContaining({ scheduling: { intervalSeconds: 3600 } }) }),
+      expect.objectContaining({
+        sources: ["~"],
+        policy: expect.objectContaining({ scheduling: { intervalSeconds: 3600 } }),
+      }),
     );
     expect(createGroup).toHaveBeenCalledWith("Devices", 5, 6);
     expect(createToken).toHaveBeenCalledWith(7, 3600, 1);

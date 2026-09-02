@@ -1,18 +1,19 @@
 import React from "react";
-import Row from "react-bootstrap/Row";
+import { Row } from "../Layout";
+import { Eyebrow } from "../../design/components";
 import { LabelColumn } from "./LabelColumn";
 import { ValueColumn } from "./ValueColumn";
 import { EffectiveValueColumn } from "./EffectiveValueColumn";
 
 export function SectionHeaderRow() {
   return (
-    <Row>
+    <Row className="border-b border-line-strong pb-2">
       <LabelColumn />
       <ValueColumn>
-        <div className="policyEditorHeader">Defined</div>
+        <Eyebrow>Defined</Eyebrow>
       </ValueColumn>
       <EffectiveValueColumn>
-        <div className="policyEditorHeader">Effective</div>
+        <Eyebrow>Effective</Eyebrow>
       </EffectiveValueColumn>
     </Row>
   );

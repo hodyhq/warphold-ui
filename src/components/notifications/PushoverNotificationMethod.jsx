@@ -1,6 +1,5 @@
 import React, { Component } from "react";
-import Col from "react-bootstrap/Col";
-import Row from "react-bootstrap/Row";
+import { Col, Row } from "../Layout";
 import { handleChange, validateRequiredFields } from "../../forms";
 import { RequiredField } from "../../forms/RequiredField";
 import { NotificationFormatSelector } from "./NotificationFormatSelector";
@@ -37,8 +36,8 @@ export class PushoverNotificationMethod extends Component {
         </Row>
         <Row>
           <Col xs={12}>
-            <hr />
-            <p>
+            <hr className="border-line" />
+            <p className="text-muted">
               Go to{" "}
               <a href="https://pushover.net/" target="_blank" rel="noopener noreferrer">
                 Pushover.net

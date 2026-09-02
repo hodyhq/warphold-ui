@@ -42,8 +42,8 @@ export function Templates() {
     setGroups(gs);
     setAgents(as);
     setFailed(false);
-    setSelected((cur) =>
-      select ?? (cur !== null && (cur === "new" || ts.some((t) => t.id === cur)) ? cur : (ts[0]?.id ?? "new")),
+    setSelected(
+      (cur) => select ?? (cur !== null && (cur === "new" || ts.some((t) => t.id === cur)) ? cur : (ts[0]?.id ?? "new")),
     );
   }, []);
 
@@ -239,12 +239,7 @@ function Editor({
     <form onSubmit={save} className="flex min-h-0 flex-col gap-[18px] overflow-auto">
       <div className="flex items-end justify-between gap-4">
         <Field label="Template name" className="grow">
-          <Input
-            value={name}
-            autoComplete="off"
-            placeholder="Home default"
-            onChange={(e) => setName(e.target.value)}
-          />
+          <Input value={name} autoComplete="off" placeholder="Home default" onChange={(e) => setName(e.target.value)} />
         </Field>
         <div className="flex gap-2">
           <Button onClick={discard}>Discard</Button>

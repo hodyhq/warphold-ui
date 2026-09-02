@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Snapshots } from "../../src/pages/Snapshots";
 import { UIPreferencesContext } from "../../src/contexts/UIPreferencesContext";
@@ -113,9 +113,7 @@ describe("Snapshots component", () => {
     });
 
     const { unmount } = renderSnapshots();
-    // Bootstrap spinner doesn't have role="status", check for the spinner class instead
-    const spinner = document.querySelector(".spinner-border");
-    expect(spinner).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Loading" })).toBeInTheDocument();
     unmount();
   });
 
@@ -154,8 +152,12 @@ describe("Snapshots component", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("snapshot-uploading")).toBeInTheDocument();
-      expect(screen.getByText("Details")).toBeInTheDocument();
-      expect(screen.getByText("Details")).toHaveAttribute("href", "/tasks/task123");
+      // One in the current-task card, one in the source's row.
+      const details = screen.getAllByText("Details");
+      expect(details).toHaveLength(2);
+      for (const link of details) {
+        expect(link).toHaveAttribute("href", "/tasks/task123");
+      }
     });
 
     unmount();
@@ -257,17 +259,14 @@ describe("Snapshots component", () => {
     const { unmount } = renderSnapshots();
 
     await waitFor(() => {
-      expect(screen.getByText("Local Snapshots")).toBeInTheDocument();
+      expect(screen.getByLabelText("Show snapshots of")).toBeInTheDocument();
     });
 
     // Initially shows local snapshots
     expect(screen.getByText("/home/user/documents")).toBeInTheDocument();
     expect(screen.queryByText("/home/otheruser/data")).not.toBeInTheDocument();
 
-    // Click dropdown and select all snapshots
-    const dropdown = screen.getByText("Local Snapshots");
-    await userEvent.click(dropdown);
-    await userEvent.click(screen.getByText("All Snapshots"));
+    await userEvent.selectOptions(screen.getByLabelText("Show snapshots of"), "All Snapshots");
 
     // Should now show all sources
     expect(screen.getByText("/home/user/documents")).toBeInTheDocument();
@@ -387,12 +386,10 @@ describe("Snapshots component", () => {
     const { unmount } = renderSnapshots({ setDefaultSnapshotViewAll });
 
     await waitFor(() => {
-      expect(screen.getByText("Local Snapshots")).toBeInTheDocument();
+      expect(screen.getByLabelText("Show snapshots of")).toBeInTheDocument();
     });
 
-    // Click dropdown and select all snapshots
-    await userEvent.click(screen.getByText("Local Snapshots"));
-    await userEvent.click(screen.getByText("All Snapshots"));
+    await userEvent.selectOptions(screen.getByLabelText("Show snapshots of"), "All Snapshots");
 
     expect(setDefaultSnapshotViewAll).toHaveBeenCalledWith(true);
 
@@ -629,6 +626,167 @@ describe("Snapshots component", () => {
       });
 
       // Should handle empty stats object gracefully
+      unmount();
+    });
+  });
+
+  describe("headline, KPIs and current task", () => {
+    // Two hours before "now" in every case below, so the headline is stable.
+    const twoHoursAgo = () => new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+
+    const sourceWith = (path, snapshot, extra = {}) => ({
+      source: { path, host: "testhost", userName: "testuser" },
+      status: "IDLE",
+      lastSnapshot: snapshot,
+      nextSnapshotTime: null,
+      ...extra,
+    });
+
+    test("headline counts from the newest good snapshot", async () => {
+      const start = twoHoursAgo();
+      axiosMock.onGet("/api/v1/sources").reply(200, {
+        localUsername: "testuser",
+        localHost: "testhost",
+        multiUser: false,
+        sources: [
+          sourceWith("/a", {
+            startTime: start,
+            endTime: start,
+            stats: { totalSize: 2_000_000 },
+            rootEntry: { summ: { numFailed: 0 } },
+          }),
+          // Newer, but it failed - so it must not win the headline.
+          sourceWith("/b", {
+            startTime: new Date().toISOString(),
+            stats: { totalSize: 1_000_000 },
+            rootEntry: { summ: { numFailed: 3 } },
+          }),
+        ],
+      });
+
+      const { unmount } = renderSnapshots();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("snapshots-headline")).toHaveTextContent("2 h");
+      });
+      expect(screen.getByTestId("snapshots-headline")).toHaveTextContent("since the last good snapshot");
+      unmount();
+    });
+
+    test("headline says so when nothing has been snapshotted", async () => {
+      axiosMock.onGet("/api/v1/sources").reply(200, {
+        localUsername: "testuser",
+        localHost: "testhost",
+        multiUser: false,
+        sources: [sourceWith("/a", null)],
+      });
+
+      const { unmount } = renderSnapshots();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("snapshots-headline")).toHaveTextContent("No snapshots yet");
+      });
+      expect(screen.getByTestId("snapshots-headline")).not.toHaveTextContent("since the last good snapshot");
+      unmount();
+    });
+
+    test("KPIs sum the protected size, count the sources and report the last run", async () => {
+      const start = "2023-01-01T10:00:00Z";
+      axiosMock.onGet("/api/v1/sources").reply(200, {
+        localUsername: "testuser",
+        localHost: "testhost",
+        multiUser: false,
+        sources: [
+          sourceWith("/a", {
+            startTime: start,
+            endTime: "2023-01-01T10:00:12Z",
+            stats: { totalSize: 2_000_000 },
+            rootEntry: { summ: { numFailed: 0 } },
+          }),
+          sourceWith("/b", { startTime: start, stats: { totalSize: 1_000_000 } }),
+        ],
+      });
+
+      const { unmount } = renderSnapshots();
+
+      const kpis = await screen.findByTestId("snapshots-kpis");
+      // 2 MB + 1 MB, in the base-10 units this context asks for.
+      expect(kpis).toHaveTextContent("3");
+      expect(kpis).toHaveTextContent("MB");
+      expect(kpis).toHaveTextContent("Sources");
+      expect(kpis).toHaveTextContent("2");
+      expect(kpis).toHaveTextContent("Last run");
+      expect(kpis).toHaveTextContent("12s");
+      unmount();
+    });
+
+    test("KPI reports errors rather than a duration when the last run failed", async () => {
+      axiosMock.onGet("/api/v1/sources").reply(200, {
+        localUsername: "testuser",
+        localHost: "testhost",
+        multiUser: false,
+        sources: [
+          sourceWith("/a", {
+            startTime: "2023-01-01T10:00:00Z",
+            endTime: "2023-01-01T10:00:12Z",
+            stats: { totalSize: 1000 },
+            rootEntry: { summ: { numFailed: 3 } },
+          }),
+        ],
+      });
+
+      const { unmount } = renderSnapshots();
+
+      const kpis = await screen.findByTestId("snapshots-kpis");
+      expect(kpis).toHaveTextContent("3");
+      expect(kpis).toHaveTextContent("errors");
+      expect(kpis).not.toHaveTextContent("12s");
+      unmount();
+    });
+
+    test("shows a current-task card with progress while a source is uploading", async () => {
+      axiosMock.onGet("/api/v1/sources").reply(200, mockSourcesResponse);
+
+      const { unmount } = renderSnapshots();
+
+      const card = await screen.findByTestId("current-task");
+      expect(card).toHaveTextContent("Backing up /home/user/photos");
+      // 512000 hashed + 204800 cached of 1024000 estimated.
+      expect(card).toHaveTextContent("70%");
+      expect(screen.getByRole("progressbar", { name: "Backing up /home/user/photos" })).toHaveAttribute(
+        "aria-valuenow",
+        "70",
+      );
+      unmount();
+    });
+
+    test("cancels the running snapshot from the current-task card", async () => {
+      axiosMock.onGet("/api/v1/sources").reply(200, mockSourcesResponse);
+      axiosMock.onPost(/\/api\/v1\/sources\/cancel/).reply(200, {});
+
+      const { unmount } = renderSnapshots();
+
+      const card = await screen.findByTestId("current-task");
+      await userEvent.click(within(card).getByRole("button", { name: "Cancel" }));
+
+      await waitFor(() => {
+        expect(axiosMock.history.post.some((r) => r.url.startsWith("/api/v1/sources/cancel"))).toBe(true);
+      });
+      unmount();
+    });
+
+    test("no current-task card when every source is idle", async () => {
+      axiosMock.onGet("/api/v1/sources").reply(200, {
+        localUsername: "testuser",
+        localHost: "testhost",
+        multiUser: false,
+        sources: [sourceWith("/a", { startTime: "2023-01-01T10:00:00Z", stats: { totalSize: 10 } })],
+      });
+
+      const { unmount } = renderSnapshots();
+
+      await waitFor(() => expect(screen.getByRole("table")).toBeInTheDocument());
+      expect(screen.queryByTestId("current-task")).not.toBeInTheDocument();
       unmount();
     });
   });

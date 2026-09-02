@@ -1,5 +1,5 @@
-import React from "react";
 import "@testing-library/jest-dom";
+import { render, screen } from "@testing-library/react";
 
 import { sizeWithFailures } from "../../src/utils/uiutil";
 import { taskStatusSymbol } from "../../src/utils/taskutil";
@@ -73,58 +73,30 @@ describe("taskStatusSymbol", () => {
     endTime: "2023-01-01T12:01:30Z",
   };
 
-  it("shows running status with spinner", () => {
-    const task = { ...baseTask, status: "RUNNING", endTime: null };
-    const result = taskStatusSymbol(task);
+  it("shows running status with a spinner and a cancel button", () => {
+    render(taskStatusSymbol({ ...baseTask, status: "RUNNING", endTime: null }));
 
-    expect(result.type).toBe(React.Fragment);
-    // The fragment contains multiple elements, check that it includes running text
-    const children = result.props.children;
-    expect(Array.isArray(children)).toBe(true);
-    // Look for text content that includes "Running for"
-    const hasRunningText = children.some((child) => typeof child === "string" && child.includes("Running for"));
-    expect(hasRunningText).toBe(true);
+    expect(screen.getByText(/Running for/)).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Loading" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel task" })).toBeInTheDocument();
   });
 
-  it("shows success status with check icon", () => {
-    const task = { ...baseTask, status: "SUCCESS" };
-    const result = taskStatusSymbol(task);
-
-    expect(result.type).toBe("p");
-    expect(result.props.children[1]).toContain("Finished in");
+  it("shows success status", () => {
+    render(taskStatusSymbol({ ...baseTask, status: "SUCCESS" }));
+    expect(screen.getByText(/Finished in/)).toBeInTheDocument();
   });
 
-  it("shows failed status with error icon", () => {
-    const task = { ...baseTask, status: "FAILED" };
-    const result = taskStatusSymbol(task);
-
-    expect(result.type).toBe("p");
-    expect(result.props.children[1]).toContain("Failed after");
+  it("shows failed status", () => {
+    render(taskStatusSymbol({ ...baseTask, status: "FAILED" }));
+    expect(screen.getByText(/Failed after/)).toBeInTheDocument();
   });
 
-  it("shows canceled status with ban icon", () => {
-    const task = { ...baseTask, status: "CANCELED" };
-    const result = taskStatusSymbol(task);
-
-    expect(result.type).toBe("p");
-    expect(result.props.children[1]).toContain("Canceled after");
+  it("shows canceled status", () => {
+    render(taskStatusSymbol({ ...baseTask, status: "CANCELED" }));
+    expect(screen.getByText(/Canceled after/)).toBeInTheDocument();
   });
 
   it("returns status string for unknown status", () => {
-    const task = { ...baseTask, status: "UNKNOWN" };
-    const result = taskStatusSymbol(task);
-
-    expect(result).toBe("UNKNOWN");
-  });
-
-  it("includes cancel button for running tasks", () => {
-    const task = { ...baseTask, status: "RUNNING", endTime: null };
-    const result = taskStatusSymbol(task);
-
-    // Should have a cancel button somewhere in the children
-    const children = result.props.children;
-    const cancelButton = children.find((child) => child && typeof child === "object" && child.type === "button");
-    expect(cancelButton).toBeDefined();
-    expect(cancelButton.props.onClick).toBeDefined();
+    expect(taskStatusSymbol({ ...baseTask, status: "UNKNOWN" })).toBe("UNKNOWN");
   });
 });
