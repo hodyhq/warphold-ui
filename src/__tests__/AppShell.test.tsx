@@ -5,6 +5,7 @@ import "@testing-library/jest-dom";
 import { AppShell } from "../AppShell";
 import { detectMode } from "../mode";
 import { fleet } from "../api/fleet";
+import { engine } from "../api/engine";
 import type { Overview } from "../api/types";
 
 vi.mock("../mode", () => ({ detectMode: vi.fn() }));
@@ -12,6 +13,15 @@ vi.mock("../App.jsx", () => ({ default: () => <div>single-user app</div> }));
 vi.mock(import("../api/fleet"), async (importOriginal) => ({
   ...(await importOriginal()),
   fleet: { settings: vi.fn(), overview: vi.fn() } as unknown as typeof import("../api/fleet").fleet,
+}));
+vi.mock(import("../api/engine"), async (importOriginal) => ({
+  ...(await importOriginal()),
+  engine: {
+    localInfo: vi.fn(),
+    sources: vi.fn(),
+    snapshots: vi.fn(),
+    tasks: vi.fn(),
+  } as unknown as typeof import("../api/engine").engine,
 }));
 
 const mockedDetect = vi.mocked(detectMode);
@@ -33,6 +43,14 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockedSettings.mockResolvedValue({ fleet_name: "home-fleet", poll_interval: 300 });
   mockedOverview.mockResolvedValue(EMPTY_OVERVIEW);
+  vi.mocked(engine.localInfo).mockResolvedValue({ name: "laptop-1", group: "" });
+  vi.mocked(engine.sources).mockResolvedValue({
+    localUsername: "user",
+    localHost: "laptop-1",
+    multiUser: false,
+    sources: [],
+  });
+  vi.mocked(engine.tasks).mockResolvedValue({ tasks: [] });
   window.history.pushState({}, "", "/");
 });
 
@@ -90,11 +108,13 @@ describe("AppShell", () => {
     expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent("protected right now");
   });
 
-  it("renders the agent placeholder in agent mode", async () => {
+  it("renders the agent screen in agent mode", async () => {
     mockedDetect.mockResolvedValue({ mode: "agent", activated: false });
 
     render(<AppShell />);
 
-    expect(await screen.findByRole("heading", { name: "This device" })).toBeInTheDocument();
+    expect(await screen.findByText("This machine")).toBeInTheDocument();
+    expect(screen.getByText("laptop-1")).toBeInTheDocument();
+    expect(mockedSettings).not.toHaveBeenCalled();
   });
 });
