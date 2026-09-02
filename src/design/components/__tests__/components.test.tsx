@@ -152,6 +152,15 @@ describe("Field / Input / Select", () => {
     expect(ref.current).toBeInstanceOf(HTMLSelectElement);
     expect(screen.getByRole("combobox")).toHaveValue("b");
   });
+
+  it("draws a visible focus ring on the focused input", () => {
+    render(<Input aria-label="passphrase" />);
+    const input = screen.getByLabelText("passphrase");
+    act(() => input.focus());
+    expect(input).toHaveFocus();
+    expect(input.className).toContain("focus-visible:ring-2");
+    expect(input.className).toContain("focus-visible:ring-ember");
+  });
 });
 
 describe("Table", () => {
