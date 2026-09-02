@@ -215,12 +215,7 @@ describe("Policies component - policy filtering", () => {
       expect(screen.getByText("Found 4 policies matching criteria.")).toBeInTheDocument();
     });
 
-    // Click dropdown and select Global Policy
-    const dropdown = screen.getByRole("button", { name: /Applicable Policies/ });
-    await userEvent.click(dropdown);
-
-    const globalPolicyOption = screen.getByText("Global Policy");
-    await userEvent.click(globalPolicyOption);
+    await userEvent.selectOptions(screen.getByLabelText("Show policies for"), "Global Policy");
 
     await waitFor(() => {
       expect(screen.getByText("Found 1 policies matching criteria.")).toBeInTheDocument();
@@ -234,12 +229,7 @@ describe("Policies component - policy filtering", () => {
       expect(screen.getByText("Found 4 policies matching criteria.")).toBeInTheDocument();
     });
 
-    // Click dropdown and select All Policies
-    const dropdown = screen.getByRole("button", { name: /Applicable Policies/ });
-    await userEvent.click(dropdown);
-
-    const allPoliciesOption = screen.getByText("All Policies");
-    await userEvent.click(allPoliciesOption);
+    await userEvent.selectOptions(screen.getByLabelText("Show policies for"), "All Policies");
 
     await waitFor(() => {
       expect(screen.getByText("Found 4 policies matching criteria.")).toBeInTheDocument();
@@ -253,12 +243,7 @@ describe("Policies component - policy filtering", () => {
       expect(screen.getByText("Found 4 policies matching criteria.")).toBeInTheDocument();
     });
 
-    // Click dropdown and select Per-User Policies
-    const dropdown = screen.getByRole("button", { name: /Applicable Policies/ });
-    await userEvent.click(dropdown);
-
-    const perUserPoliciesOption = screen.getByText("Per-User Policies");
-    await userEvent.click(perUserPoliciesOption);
+    await userEvent.selectOptions(screen.getByLabelText("Show policies for"), "Per-User Policies");
 
     await waitFor(() => {
       expect(screen.getByText("No policies found.")).toBeInTheDocument();
@@ -272,12 +257,7 @@ describe("Policies component - policy filtering", () => {
       expect(screen.getByText("Found 4 policies matching criteria.")).toBeInTheDocument();
     });
 
-    // Click dropdown and select Per-Host Policies
-    const dropdown = screen.getByRole("button", { name: /Applicable Policies/ });
-    await userEvent.click(dropdown);
-
-    const perHostPoliciesOption = screen.getByText("Per-Host Policies");
-    await userEvent.click(perHostPoliciesOption);
+    await userEvent.selectOptions(screen.getByLabelText("Show policies for"), "Per-Host Policies");
 
     await waitFor(() => {
       expect(screen.getByText("Found 1 policies matching criteria.")).toBeInTheDocument();
@@ -382,12 +362,7 @@ describe("Policies component - policy path input", () => {
       expect(screen.getByPlaceholderText("enter directory to find or set policy")).toBeInTheDocument();
     });
 
-    // Switch to "All Policies"
-    const dropdown = screen.getByRole("button", { name: /Applicable Policies/ });
-    await userEvent.click(dropdown);
-
-    const allPoliciesOption = screen.getByText("All Policies");
-    await userEvent.click(allPoliciesOption);
+    await userEvent.selectOptions(screen.getByLabelText("Show policies for"), "All Policies");
 
     await waitFor(() => {
       expect(screen.queryByPlaceholderText("enter directory to find or set policy")).not.toBeInTheDocument();
@@ -466,12 +441,7 @@ describe("Policies component - no policies state", () => {
       expect(pathInput).toBeInTheDocument();
     });
 
-    // Switch to Local Path Policies
-    const dropdown = screen.getByRole("button", { name: /Applicable Policies/ });
-    await userEvent.click(dropdown);
-
-    const localPoliciesOption = screen.getByText("Local Path Policies");
-    await userEvent.click(localPoliciesOption);
+    await userEvent.selectOptions(screen.getByLabelText("Show policies for"), "Local Path Policies");
 
     // Enter a path
     const pathInput = screen.getByPlaceholderText("enter directory to find or set policy");

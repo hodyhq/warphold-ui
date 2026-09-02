@@ -152,7 +152,11 @@ export function policyWithForm(policy: KopiaPolicy, form: PolicyForm): KopiaPoli
     next.scheduling = prune(scheduling);
   }
 
-  const files = withKey({ ...section<NonNullable<KopiaPolicy["files"]>>(policy.files) }, "ignore", lines(form.exclude).length ? lines(form.exclude) : undefined);
+  const files = withKey(
+    { ...section<NonNullable<KopiaPolicy["files"]>>(policy.files) },
+    "ignore",
+    lines(form.exclude).length ? lines(form.exclude) : undefined,
+  );
   next.files = prune(files);
 
   let retention = { ...section<NonNullable<KopiaPolicy["retention"]>>(policy.retention) };

@@ -2,12 +2,8 @@ import { faUserFriends } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import axios from "axios";
 import React, { Component } from "react";
-import Badge from "react-bootstrap/Badge";
-import Button from "react-bootstrap/Button";
-import Col from "react-bootstrap/Col";
-import Dropdown from "react-bootstrap/Dropdown";
-import Form from "react-bootstrap/Form";
-import Row from "react-bootstrap/Row";
+import { Button, Eyebrow, Pill, Select } from "../design/components";
+import { Col, Row } from "../components/Layout";
 import { Link, useNavigate } from "react-router";
 import { handleChange } from "../forms";
 import { OptionalDirectory } from "../forms/OptionalDirectory";
@@ -17,6 +13,11 @@ import { compare, formatOwnerName } from "../utils/formatutils";
 import { redirect } from "../utils/uiutil";
 import { checkPolicyPath, policyEditorURL } from "../utils/policyutil";
 import PropTypes from "prop-types";
+
+/** The `Button` look, for links that must stay anchors. */
+const LINK_BUTTON =
+  "inline-block cursor-pointer rounded-sm border border-line-strong bg-transparent px-[14px] py-[9px] " +
+  "text-[12px] font-semibold tracking-[0.06em] text-ink uppercase hover:border-ink-soft hover:text-ink";
 
 const applicablePolicies = "Applicable Policies";
 const localPolicies = "Local Path Policies";
@@ -165,14 +166,10 @@ export class PoliciesInternal extends Component {
     }
     for (let pol in policies.policy) {
       if (!isEmpty(policies.policy[pol])) {
-        bits.push(
-          <Badge bg="policy-badge" key={pol}>
-            {pol}
-          </Badge>,
-        );
+        bits.push(<Pill key={pol}>{pol}</Pill>);
       }
     }
-    return bits;
+    return <span className="flex flex-wrap gap-[6px]">{bits}</span>;
   }
 
   isGlobalPolicy(x) {
@@ -275,94 +272,83 @@ export class PoliciesInternal extends Component {
         header: "Actions",
         width: 50,
         cell: (x) => (
-          <Button
-            data-testid="edit-policy"
-            as={Link}
-            to={policyEditorURL(x.row.original.target)}
-            variant="primary"
-            size="sm"
-          >
+          <Link data-testid="edit-policy" to={policyEditorURL(x.row.original.target)} className={LINK_BUTTON}>
             Edit
-          </Button>
+          </Link>
         ),
       },
     ];
 
     return (
-      <>
+      <div className="flex flex-col gap-4">
+        <div>
+          <Eyebrow>Policies</Eyebrow>
+          <h1 className="font-display m-0 mt-2 text-[36px] leading-none font-extrabold tracking-[-0.02em]">
+            What gets kept
+          </h1>
+        </div>
         {!this.state.editorTarget && (
-          <div className="list-actions">
-            <Form onSubmit={this.editPolicyForPath}>
-              <Row>
-                <Col xs="auto">
-                  <Dropdown>
-                    <Dropdown.Toggle size="sm" variant="primary" id="dropdown-basic">
-                      <FontAwesomeIcon icon={faUserFriends} />
-                      &nbsp;{this.state.selectedOwner}
-                    </Dropdown.Toggle>
-
-                    <Dropdown.Menu>
-                      <Dropdown.Item onClick={() => this.selectOwner(applicablePolicies)}>
-                        {applicablePolicies}
-                      </Dropdown.Item>
-                      <Dropdown.Item onClick={() => this.selectOwner(localPolicies)}>{localPolicies}</Dropdown.Item>
-                      <Dropdown.Item onClick={() => this.selectOwner(allPolicies)}>{allPolicies}</Dropdown.Item>
-                      <Dropdown.Divider />
-                      <Dropdown.Item onClick={() => this.selectOwner(globalPolicy)}>{globalPolicy}</Dropdown.Item>
-                      <Dropdown.Item onClick={() => this.selectOwner(perUserPolicies)}>{perUserPolicies}</Dropdown.Item>
-                      <Dropdown.Item onClick={() => this.selectOwner(perHostPolicies)}>{perHostPolicies}</Dropdown.Item>
-                      <Dropdown.Divider />
-                      {uniqueOwners.map((v) => (
-                        <Dropdown.Item key={v} onClick={() => this.selectOwner(v)}>
-                          {v}
-                        </Dropdown.Item>
-                      ))}
-                    </Dropdown.Menu>
-                  </Dropdown>
-                </Col>
-                {this.state.selectedOwner === localPolicies ||
+          <form onSubmit={this.editPolicyForPath}>
+            <Row className="items-end">
+              <Col xs="auto">
+                <label className="flex items-center gap-2">
+                  <FontAwesomeIcon icon={faUserFriends} className="text-muted" aria-hidden="true" />
+                  <span className="sr-only">Show policies for</span>
+                  <Select
+                    className="py-[6px] text-[12px]"
+                    value={this.state.selectedOwner}
+                    onChange={(e) => this.selectOwner(e.target.value)}
+                  >
+                    <option value={applicablePolicies}>{applicablePolicies}</option>
+                    <option value={localPolicies}>{localPolicies}</option>
+                    <option value={allPolicies}>{allPolicies}</option>
+                    <option value={globalPolicy}>{globalPolicy}</option>
+                    <option value={perUserPolicies}>{perUserPolicies}</option>
+                    <option value={perHostPolicies}>{perHostPolicies}</option>
+                    {uniqueOwners.map((v) => (
+                      <option key={v} value={v}>
+                        {v}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+              </Col>
+              {(this.state.selectedOwner === localPolicies ||
                 this.state.selectedOwner === this.state.localSourceName ||
-                this.state.selectedOwner === applicablePolicies ? (
-                  <>
-                    <Col>
-                      {OptionalDirectory(this, null, "policyPath", {
-                        autoFocus: true,
-                        placeholder: "enter directory to find or set policy",
-                      })}
-                    </Col>
-                    <Col xs="auto">
-                      <Button
-                        disabled={!this.state.policyPath}
-                        size="sm"
-                        type="submit"
-                        onClick={this.editPolicyForPath}
-                      >
-                        Set Policy
-                      </Button>
-                    </Col>
-                  </>
-                ) : (
-                  <Col />
-                )}
-              </Row>
-            </Form>
-          </div>
+                this.state.selectedOwner === applicablePolicies) && (
+                <>
+                  <Col>
+                    {OptionalDirectory(this, null, "policyPath", {
+                      autoFocus: true,
+                      placeholder: "enter directory to find or set policy",
+                    })}
+                  </Col>
+                  <Col xs="auto">
+                    <Button disabled={!this.state.policyPath} type="submit" onClick={this.editPolicyForPath}>
+                      Set Policy
+                    </Button>
+                  </Col>
+                </>
+              )}
+            </Row>
+          </form>
         )}
 
         {policies.length > 0 ? (
           <div>
-            <p>Found {policies.length} policies matching criteria.</p>
+            <p className="text-muted">Found {policies.length} policies matching criteria.</p>
             <KopiaTable data={policies} columns={columns} />
           </div>
         ) : this.state.selectedOwner === localPolicies && this.state.policyPath ? (
-          <p>
-            No policy found for directory <code>{this.state.policyPath}</code>. Click <b>Set Policy</b> to define it.
+          <p className="text-muted">
+            No policy found for directory <code className="font-mono">{this.state.policyPath}</code>. Click{" "}
+            <b>Set Policy</b> to define it.
           </p>
         ) : (
-          <p>No policies found.</p>
+          <p className="text-muted">No policies found.</p>
         )}
         <CLIEquivalent command="policy list" />
-      </>
+      </div>
     );
   }
 }

@@ -49,8 +49,7 @@ describe("SnapshotHistory", () => {
     axios.get.mockImplementation(() => new Promise(() => {})); // Never resolves
     renderWithProviders(<SnapshotHistory />);
 
-    // Look for Bootstrap spinner div
-    expect(document.querySelector(".spinner-border")).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Loading" })).toBeInTheDocument();
   });
 
   it("should fetch and display snapshots on mount", async () => {
@@ -84,7 +83,7 @@ describe("SnapshotHistory", () => {
     renderWithProviders(<SnapshotHistory />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Displaying.*1.*snapshots/)).toBeInTheDocument();
+      expect(screen.getByText(/1 snapshots/)).toBeInTheDocument();
     });
 
     // Check that basic elements are rendered
@@ -145,7 +144,7 @@ describe("SnapshotHistory", () => {
     renderWithProviders(<SnapshotHistory />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Displaying.*0.*snapshots/)).toBeInTheDocument();
+      expect(screen.getByText(/0 snapshots/)).toBeInTheDocument();
     });
   });
 
@@ -276,7 +275,7 @@ describe("SnapshotHistory", () => {
     renderWithProviders(<SnapshotHistory />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Displaying.*2.*snapshots/)).toBeInTheDocument();
+      expect(screen.getByText(/2 snapshots/)).toBeInTheDocument();
     });
   });
 
@@ -398,7 +397,7 @@ describe("SnapshotHistory", () => {
       renderWithProviders(<SnapshotHistory />);
 
       await waitFor(() => {
-        expect(screen.getByText(/Displaying.*2.*snapshots/)).toBeInTheDocument();
+        expect(screen.getByText(/2 snapshots/)).toBeInTheDocument();
       });
     });
 

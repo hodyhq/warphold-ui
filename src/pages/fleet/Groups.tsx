@@ -140,8 +140,8 @@ export function Groups() {
 
       {groups.length === 0 ? (
         <p className="text-muted m-0 max-w-[60ch]">
-          A group ties a target to a policy template. Devices enrol into a group, and everything in it backs up the
-          same way, to the same place.
+          A group ties a target to a policy template. Devices enrol into a group, and everything in it backs up the same
+          way, to the same place.
         </p>
       ) : (
         <div className="grid grid-cols-3 gap-[18px]">

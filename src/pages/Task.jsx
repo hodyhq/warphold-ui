@@ -2,13 +2,8 @@ import { faStopCircle } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import axios from "axios";
 import React, { Component, use } from "react";
-import Alert from "react-bootstrap/Alert";
-import Button from "react-bootstrap/Button";
-import Col from "react-bootstrap/Col";
-import Form from "react-bootstrap/Form";
-import Row from "react-bootstrap/Row";
-import Table from "react-bootstrap/Table";
-import Spinner from "react-bootstrap/Spinner";
+import { Button, Card, Eyebrow, Input, Spinner } from "../design/components";
+import { Col, Row } from "../components/Layout";
 import { Logs } from "../components/Logs";
 import { useNavigate, useLocation, useParams } from "react-router";
 import { formatDuration, sizeDisplayName } from "../utils/formatutils";
@@ -84,33 +79,43 @@ class TaskInternal extends Component {
     switch (task.status) {
       case "SUCCESS":
         return (
-          <Alert size="sm" variant="success">
-            Task succeeded after {dur}.
-          </Alert>
+          <Card>
+            <span className="text-good">Task succeeded after {dur}.</span>
+          </Card>
         );
 
       case "FAILED":
         return (
-          <Alert variant="danger">
-            <b>Error:</b> {task.errorMessage}.
-          </Alert>
+          <Card tone="bad">
+            <span role="alert">
+              <b>Error:</b> {task.errorMessage}.
+            </span>
+          </Card>
         );
 
       case "CANCELED":
-        return <Alert variant="warning">Task canceled.</Alert>;
+        return (
+          <Card tone="warn">
+            <span>Task canceled.</span>
+          </Card>
+        );
 
       case "CANCELING":
         return (
-          <Alert variant="primary">
-            <Spinner animation="border" variant="warning" size="sm" /> Canceling {dur}: {task.progressInfo}.
-          </Alert>
+          <Card tone="warn">
+            <span className="flex items-center gap-2">
+              <Spinner size={14} /> Canceling {dur}: {task.progressInfo}.
+            </span>
+          </Card>
         );
 
       default:
         return (
-          <Alert variant="primary">
-            <Spinner animation="border" variant="primary" size="sm" /> Running for {dur}: {task.progressInfo}.
-          </Alert>
+          <Card>
+            <span className="flex items-center gap-2">
+              <Spinner size={14} /> Running for {dur}: {task.progressInfo}.
+            </span>
+          </Card>
         );
     }
   }
@@ -135,9 +140,9 @@ class TaskInternal extends Component {
     }
 
     return (
-      <tr key={label}>
-        <td>{label}</td>
-        <td>{formatted}</td>
+      <tr key={label} className="border-b border-line">
+        <td className="px-2 py-[8px]">{label}</td>
+        <td className="px-2 py-[8px] text-right font-mono">{formatted}</td>
       </tr>
     );
   }
@@ -192,64 +197,55 @@ class TaskInternal extends Component {
     }
 
     return (
-      <Form>
+      <div className="flex flex-col gap-4">
         {this.props.navigate && (
-          <Row>
-            <Form.Group>
-              <h4>
-                <GoBackButton />
-                {task.status === "RUNNING" && (
-                  <>
-                    &nbsp;
-                    <Button size="sm" variant="danger" onClick={() => cancelTask(task.id)}>
-                      <FontAwesomeIcon icon={faStopCircle} /> Stop{" "}
-                    </Button>
-                  </>
-                )}
-                &nbsp;{task.kind}: {task.description}
-              </h4>
-            </Form.Group>
-          </Row>
+          <div className="flex flex-wrap items-center gap-3 border-b border-line-strong pb-3">
+            <GoBackButton />
+            {task.status === "RUNNING" && (
+              <Button variant="danger" onClick={() => cancelTask(task.id)}>
+                <FontAwesomeIcon icon={faStopCircle} /> Stop
+              </Button>
+            )}
+            <h1 className="font-display m-0 text-[20px] leading-none font-extrabold tracking-[-0.02em]">
+              {task.kind}: {task.description}
+            </h1>
+          </div>
         )}
-        <Row>
-          <Col xs={12}>{this.summaryControl(task)}</Col>
-        </Row>
+        {this.summaryControl(task)}
         {task.counters && (
-          <Row>
-            <Col>
-              <Table bordered hover size="sm">
-                <thead>
-                  <tr>
-                    <th>Counter</th>
-                    <th>Value</th>
-                  </tr>
-                </thead>
-                <tbody>{this.sortedBadges(task.counters, bytesStringBase2)}</tbody>
-              </Table>
-            </Col>
-          </Row>
+          <table className="w-full border-collapse text-[13px]">
+            <thead>
+              <tr className="border-b border-line-strong text-left">
+                <th className="px-2 py-[8px] font-normal">
+                  <Eyebrow>Counter</Eyebrow>
+                </th>
+                <th className="px-2 py-[8px] text-right font-normal">
+                  <Eyebrow>Value</Eyebrow>
+                </th>
+              </tr>
+            </thead>
+            <tbody>{this.sortedBadges(task.counters, bytesStringBase2)}</tbody>
+          </table>
         )}
         <Row>
-          <Col xs={6}>
-            <Form.Group>
-              <Form.Label>Started</Form.Label>
-              <Form.Control type="text" readOnly={true} value={new Date(task.startTime).toLocaleString()} />
-            </Form.Group>
+          <Col>
+            <label className="flex flex-col gap-[6px]">
+              <Eyebrow>Started</Eyebrow>
+              <Input type="text" readOnly={true} value={new Date(task.startTime).toLocaleString()} />
+            </label>
           </Col>
-          <Col xs={6}>
-            <Form.Group>
-              <Form.Label>Finished</Form.Label>
-              <Form.Control type="text" readOnly={true} value={new Date(task.endTime).toLocaleString()} />
-            </Form.Group>
+          <Col>
+            <label className="flex flex-col gap-[6px]">
+              <Eyebrow>Finished</Eyebrow>
+              <Input type="text" readOnly={true} value={new Date(task.endTime).toLocaleString()} />
+            </label>
           </Col>
         </Row>
-        <Row>
-          <Form.Group>
-            <Form.Label>Logs</Form.Label>
-            <Logs taskID={this.taskID(this.props)} />
-          </Form.Group>
-        </Row>
-      </Form>
+        <div className="flex flex-col gap-[6px]">
+          <Eyebrow>Logs</Eyebrow>
+          <Logs taskID={this.taskID(this.props)} />
+        </div>
+      </div>
     );
   }
 }

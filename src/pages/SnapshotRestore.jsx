@@ -1,9 +1,7 @@
 import axios from "axios";
 import React, { Component } from "react";
-import Button from "react-bootstrap/Button";
-import Form from "react-bootstrap/Form";
-import Row from "react-bootstrap/Row";
-import Col from "react-bootstrap/Col";
+import { Button, Eyebrow } from "../design/components";
+import { Row } from "../components/Layout";
 import { useNavigate, useLocation, useParams } from "react-router";
 import { Link } from "react-router";
 import { handleChange, validateRequiredFields } from "../forms";
@@ -95,22 +93,27 @@ export class SnapshotRestoreInternal extends Component {
   render() {
     if (this.state.restoreTask) {
       return (
-        <p>
+        <div className="flex items-center gap-3">
           <GoBackButton />
           <Link replace={true} to={"/tasks/" + this.state.restoreTask}>
             Go To Restore Task
           </Link>
-          .
-        </p>
+        </div>
       );
     }
 
     return (
-      <div className="padded-top">
-        <GoBackButton />
-        &nbsp;<span className="page-title">Restore</span>
-        <hr />
-        <Form onSubmit={this.start}>
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-3 border-b border-line-strong pb-3">
+          <GoBackButton />
+          <div>
+            <Eyebrow>Restore</Eyebrow>
+            <h1 className="font-display m-0 text-[24px] leading-none font-extrabold tracking-[-0.02em]">
+              Restore files
+            </h1>
+          </div>
+        </div>
+        <form className="flex flex-col gap-4" onSubmit={this.start}>
           <Row>
             {RequiredField(
               this,
@@ -140,20 +143,12 @@ export class SnapshotRestoreInternal extends Component {
           <Row>{RequiredBoolean(this, "Overwrite Symbolic Links", "overwriteSymlinks")}</Row>
           <Row>{RequiredBoolean(this, "Write files atomically", "writeFilesAtomically")}</Row>
           <Row>{RequiredBoolean(this, "Write Sparse Files", "writeSparseFiles")}</Row>
-          <Row>
-            <Col>
-              <hr />
-            </Col>
-          </Row>
+          <hr className="border-line" />
           <Row>
             {RequiredNumberField(this, "Shallow Restore At Depth", "restoreDirEntryAtDepth")}
             {RequiredNumberField(this, "Minimal File Size For Shallow Restore", "minSizeForPlaceholder")}
           </Row>
-          <Row>
-            <Col>
-              <hr />
-            </Col>
-          </Row>
+          <hr className="border-line" />
           <Row>
             {RequiredBoolean(
               this,
@@ -162,19 +157,13 @@ export class SnapshotRestoreInternal extends Component {
               "Do not compress when restoring to a ZIP file (faster).",
             )}
           </Row>
-          <Row>
-            <Col>
-              <hr />
-            </Col>
-          </Row>
-          <Row>
-            <Col>
-              <Button variant="primary" type="submit" data-testid="submit-button">
-                Begin Restore
-              </Button>
-            </Col>
-          </Row>
-        </Form>
+          <hr className="border-line" />
+          <div>
+            <Button variant="primary" type="submit" data-testid="submit-button">
+              Begin Restore
+            </Button>
+          </div>
+        </form>
       </div>
     );
   }

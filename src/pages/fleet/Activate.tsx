@@ -40,11 +40,15 @@ function Rail({ step }: { step: number }) {
       <ol className="m-0 flex list-none flex-col gap-[6px] p-0">
         {STEPS.map((label, i) => {
           const n = i + 1;
-          const tone = n === step ? "text-ember border-ember" : n < step ? "text-good border-good" : "text-dim border-line-strong";
+          const tone =
+            n === step ? "text-ember border-ember" : n < step ? "text-good border-good" : "text-dim border-line-strong";
           return (
             <li key={label} className="flex items-center gap-3 py-3" aria-current={n === step ? "step" : undefined}>
               <span
-                className={clsx("font-display flex h-7 w-7 items-center justify-center border text-[14px] font-extrabold", tone)}
+                className={clsx(
+                  "font-display flex h-7 w-7 items-center justify-center border text-[14px] font-extrabold",
+                  tone,
+                )}
               >
                 {n}
               </span>

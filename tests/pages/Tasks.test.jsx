@@ -151,13 +151,7 @@ describe("Tasks component", () => {
       expect(screen.getByText("Task 3")).toBeInTheDocument();
     });
 
-    // Click on the status dropdown
-    const statusDropdown = screen.getByText("Status: All");
-    await userEvent.click(statusDropdown);
-
-    // Select "Running" status
-    const runningOption = screen.getByText("Running");
-    await userEvent.click(runningOption);
+    await userEvent.selectOptions(screen.getByLabelText("Status"), "Running");
 
     // Should only show running tasks
     expect(screen.queryByText("Task 1")).not.toBeInTheDocument();
@@ -200,15 +194,7 @@ describe("Tasks component", () => {
       expect(screen.getByText("Restore task")).toBeInTheDocument();
     });
 
-    // Click on the kind dropdown
-    const kindDropdown = screen.getByText("Kind: All");
-    await userEvent.click(kindDropdown);
-
-    // Select "Snapshot" kind - use getAllByText since there are multiple elements
-    const snapshotOptions = screen.getAllByText("Snapshot");
-    // Click on the dropdown option (not the table content)
-    const dropdownOption = snapshotOptions.find((el) => el.classList.contains("dropdown-item"));
-    await userEvent.click(dropdownOption);
+    await userEvent.selectOptions(screen.getByLabelText("Kind"), "Snapshot");
 
     // Should only show snapshot tasks
     expect(screen.getByText("Snapshot task")).toBeInTheDocument();
@@ -294,15 +280,8 @@ describe("Tasks component", () => {
       expect(screen.getAllByText("Backing up files")).toHaveLength(3);
     });
 
-    // Set status filter to "Running"
-    const statusDropdown = screen.getByText("Status: All");
-    await userEvent.click(statusDropdown);
-    await userEvent.click(screen.getByText("Running"));
-
-    // Set kind filter to "Snapshot"
-    const kindDropdown = screen.getByText("Kind: All");
-    await userEvent.click(kindDropdown);
-    await userEvent.click(screen.getAllByText("Snapshot")[0]); // Use getAllByText and select the first one
+    await userEvent.selectOptions(screen.getByLabelText("Status"), "Running");
+    await userEvent.selectOptions(screen.getByLabelText("Kind"), "Snapshot");
 
     // Should only show task2 (Snapshot + Running)
     expect(screen.getAllByText("Backing up files")).toHaveLength(1);

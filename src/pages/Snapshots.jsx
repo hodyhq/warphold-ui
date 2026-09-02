@@ -3,12 +3,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import axios from "axios";
 import moment from "moment";
 import React, { Component } from "react";
-import Badge from "react-bootstrap/Badge";
-import Button from "react-bootstrap/Button";
-import Col from "react-bootstrap/Col";
-import Dropdown from "react-bootstrap/Dropdown";
-import Row from "react-bootstrap/Row";
-import Spinner from "react-bootstrap/Spinner";
+import { Button, Eyebrow, Pill, Select, Spinner } from "../design/components";
 import { Link } from "react-router";
 import KopiaTable from "../components/KopiaTable";
 import { compare, formatOwnerName, sizeDisplayName } from "../utils/formatutils";
@@ -16,6 +11,14 @@ import { errorAlert, redirect, sizeWithFailures } from "../utils/uiutil";
 import { policyEditorURL, sourceQueryStringParams } from "../utils/policyutil";
 import { CLIEquivalent } from "../components/CLIEquivalent";
 import { UIPreferencesContext } from "../contexts/UIPreferencesContext";
+
+/** The `Button` look, for the links that have to stay anchors. */
+const LINK_BUTTON =
+  "inline-block cursor-pointer rounded-sm border border-line-strong bg-transparent px-[14px] py-[9px] " +
+  "text-[12px] font-semibold tracking-[0.06em] text-ink uppercase hover:border-ink-soft hover:text-ink";
+const PRIMARY_LINK_BUTTON =
+  "inline-block cursor-pointer rounded-sm border border-ember bg-ember px-[14px] py-[9px] text-[12px] " +
+  "font-semibold tracking-[0.06em] text-ground uppercase hover:border-ember-soft hover:bg-ember-soft hover:text-ground";
 
 const localSnapshots = "Local Snapshots";
 const allSnapshots = "All Snapshots";
@@ -142,41 +145,32 @@ export class Snapshots extends Component {
       case "IDLE":
       case "PAUSED":
         return (
-          <>
-            <Button
-              data-testid="edit-policy"
-              as={Link}
-              to={policyEditorURL(x.row.original.source)}
-              variant="primary"
-              size="sm"
-            >
+          <div className="flex flex-wrap gap-2">
+            <Link data-testid="edit-policy" to={policyEditorURL(x.row.original.source)} className={LINK_BUTTON}>
               Policy
-            </Button>
+            </Link>
             <Button
               data-testid="snapshot-now"
-              variant="success"
-              size="sm"
+              variant="primary"
               onClick={() => {
                 parent.startSnapshot(x.row.original.source);
               }}
             >
               Snapshot Now
             </Button>
-          </>
+          </div>
         );
 
       case "PENDING":
         return (
-          <>
+          <span className="inline-flex items-center gap-2">
             <Spinner
               data-testid="snapshot-pending"
-              animation="border"
-              variant="secondary"
-              size="sm"
+              size={14}
               title="Snapshot will start after the previous snapshot completes"
             />
-            &nbsp;Pending
-          </>
+            Pending
+          </span>
         );
 
       case "UPLOADING": {
@@ -212,12 +206,11 @@ export class Snapshots extends Component {
         }
 
         return (
-          <>
-            <Spinner data-testid="snapshot-uploading" animation="border" variant="primary" size="sm" title={title} />
-            &nbsp;{totals}
-            &nbsp;
+          <span className="inline-flex items-center gap-2">
+            <Spinner data-testid="snapshot-uploading" size={14} title={title} />
+            <span className="font-mono text-ember">{totals}</span>
             {x.row.original.currentTask && <Link to={"/tasks/" + x.row.original.currentTask}>Details</Link>}
-          </>
+          </span>
         );
       }
 
@@ -262,15 +255,10 @@ export class Snapshots extends Component {
     }
 
     return (
-      <p title={moment(x.cell.getValue()).toLocaleString()}>
+      <span className="inline-flex items-center gap-2" title={moment(x.cell.getValue()).toLocaleString()}>
         {moment(x.cell.getValue()).fromNow()}
-        {moment(x.cell.getValue()).isBefore(moment()) && (
-          <>
-            &nbsp;
-            <Badge bg="secondary">overdue</Badge>
-          </>
-        )}
-      </p>
+        {moment(x.cell.getValue()).isBefore(moment()) && <Pill tone="warn">overdue</Pill>}
+      </span>
     );
   }
 
@@ -281,7 +269,7 @@ export class Snapshots extends Component {
       return <p>{error.message}</p>;
     }
     if (isLoading) {
-      return <Spinner animation="border" variant="primary" />;
+      return <Spinner size={24} />;
     }
     let uniqueOwners = sources.reduce((a, d) => {
       const owner = formatOwnerName(d.source);
@@ -349,7 +337,7 @@ export class Snapshots extends Component {
         accessorFn: (x) => (x.lastSnapshot ? x.lastSnapshot.startTime : null),
         cell: (x) =>
           x.cell.getValue() ? (
-            <p title={moment(x.cell.getValue()).toLocaleString()}>{moment(x.cell.getValue()).fromNow()}</p>
+            <span title={moment(x.cell.getValue()).toLocaleString()}>{moment(x.cell.getValue()).fromNow()}</span>
           ) : (
             ""
           ),
@@ -371,53 +359,47 @@ export class Snapshots extends Component {
     ];
 
     return (
-      <>
-        <div className="list-actions">
-          <Row>
+      <div className="flex flex-col gap-4">
+        <div className="flex items-end justify-between gap-6 border-b border-line-strong pb-3">
+          <div>
+            <Eyebrow>This machine · {sources.length} sources</Eyebrow>
+            <h1 className="font-display m-0 mt-2 text-[36px] leading-none font-extrabold tracking-[-0.02em]">
+              Sources
+            </h1>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
             {this.state.multiUser && (
-              <>
-                <Col xs="auto">
-                  <Dropdown>
-                    <Dropdown.Toggle size="sm" variant="primary" id="dropdown-basic">
-                      <FontAwesomeIcon icon={faUserFriends} />
-                      &nbsp;{this.state.selectedOwner}
-                    </Dropdown.Toggle>
-
-                    <Dropdown.Menu>
-                      <Dropdown.Item onClick={() => this.selectOwner(localSnapshots)}>{localSnapshots}</Dropdown.Item>
-                      <Dropdown.Item onClick={() => this.selectOwner(allSnapshots)}>{allSnapshots}</Dropdown.Item>
-                      <Dropdown.Divider />
-                      {uniqueOwners.map((v) => (
-                        <Dropdown.Item key={v} onClick={() => this.selectOwner(v)}>
-                          {v}
-                        </Dropdown.Item>
-                      ))}
-                    </Dropdown.Menu>
-                  </Dropdown>
-                </Col>
-              </>
+              <label className="flex items-center gap-2">
+                <FontAwesomeIcon icon={faUserFriends} className="text-muted" aria-hidden="true" />
+                <span className="sr-only">Show snapshots of</span>
+                <Select
+                  className="py-[6px] text-[12px]"
+                  value={this.state.selectedOwner ?? localSnapshots}
+                  onChange={(e) => this.selectOwner(e.target.value)}
+                >
+                  <option value={localSnapshots}>{localSnapshots}</option>
+                  <option value={allSnapshots}>{allSnapshots}</option>
+                  {uniqueOwners.map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </Select>
+              </label>
             )}
-            <Col xs="auto">
-              <Button data-testid="new-snapshot" size="sm" variant="primary" href="/snapshots/new">
-                New Snapshot
-              </Button>
-            </Col>
-            <Col></Col>
-            <Col xs="auto">
-              <Button size="sm" title="Synchronize" variant="primary">
-                {this.state.isRefreshing ? (
-                  <Spinner animation="border" variant="light" size="sm" />
-                ) : (
-                  <FontAwesomeIcon icon={faSync} onClick={this.sync} />
-                )}
-              </Button>
-            </Col>
-          </Row>
+            <Button title="Synchronize" aria-label="Synchronize" onClick={this.sync} disabled={this.state.isRefreshing}>
+              {this.state.isRefreshing ? <Spinner size={12} /> : <FontAwesomeIcon icon={faSync} />}
+            </Button>
+            {/* An anchor, not a button: the upstream e2e clicks a[data-testid='new-snapshot']. */}
+            <a data-testid="new-snapshot" href="/snapshots/new" className={PRIMARY_LINK_BUTTON}>
+              New Snapshot
+            </a>
+          </div>
         </div>
 
         <KopiaTable data={sources} columns={columns} />
         <CLIEquivalent command={`snapshot list`} />
-      </>
+      </div>
     );
   }
 }

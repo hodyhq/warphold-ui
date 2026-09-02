@@ -162,7 +162,9 @@ describe("Groups", () => {
     // The token-on-the-command-line form exists, but only behind a disclosure
     // that says what it costs.
     const unattended = screen.getByLabelText(/unattended command/i);
-    expect(unattended).toHaveValue(`WARPHOLD_ENROLL_TOKEN=${NEW_TOKEN} sh -c "$(curl -fsSL ${window.location.origin}/enroll.sh)"`);
+    expect(unattended).toHaveValue(
+      `WARPHOLD_ENROLL_TOKEN=${NEW_TOKEN} sh -c "$(curl -fsSL ${window.location.origin}/enroll.sh)"`,
+    );
     expect(screen.getByText(/kept in the shell history of the machine that runs it/i)).toBeInTheDocument();
   });
 

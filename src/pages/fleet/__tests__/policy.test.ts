@@ -36,7 +36,14 @@ describe("formFromPolicy", () => {
   it("refuses to round a schedule it cannot draw", () => {
     expect(formFromPolicy({ scheduling: { intervalSeconds: 900 } }).schedule).toBe("custom");
     expect(
-      formFromPolicy({ scheduling: { timeOfDay: [{ hour: 3, min: 0 }, { hour: 15, min: 0 }] } }).schedule,
+      formFromPolicy({
+        scheduling: {
+          timeOfDay: [
+            { hour: 3, min: 0 },
+            { hour: 15, min: 0 },
+          ],
+        },
+      }).schedule,
     ).toBe("custom");
     expect(formFromPolicy({ scheduling: { cron: ["0 3 * * *"] } }).schedule).toBe("custom");
   });

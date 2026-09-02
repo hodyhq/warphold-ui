@@ -113,9 +113,7 @@ describe("Snapshots component", () => {
     });
 
     const { unmount } = renderSnapshots();
-    // Bootstrap spinner doesn't have role="status", check for the spinner class instead
-    const spinner = document.querySelector(".spinner-border");
-    expect(spinner).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Loading" })).toBeInTheDocument();
     unmount();
   });
 
@@ -257,17 +255,14 @@ describe("Snapshots component", () => {
     const { unmount } = renderSnapshots();
 
     await waitFor(() => {
-      expect(screen.getByText("Local Snapshots")).toBeInTheDocument();
+      expect(screen.getByLabelText("Show snapshots of")).toBeInTheDocument();
     });
 
     // Initially shows local snapshots
     expect(screen.getByText("/home/user/documents")).toBeInTheDocument();
     expect(screen.queryByText("/home/otheruser/data")).not.toBeInTheDocument();
 
-    // Click dropdown and select all snapshots
-    const dropdown = screen.getByText("Local Snapshots");
-    await userEvent.click(dropdown);
-    await userEvent.click(screen.getByText("All Snapshots"));
+    await userEvent.selectOptions(screen.getByLabelText("Show snapshots of"), "All Snapshots");
 
     // Should now show all sources
     expect(screen.getByText("/home/user/documents")).toBeInTheDocument();
@@ -387,12 +382,10 @@ describe("Snapshots component", () => {
     const { unmount } = renderSnapshots({ setDefaultSnapshotViewAll });
 
     await waitFor(() => {
-      expect(screen.getByText("Local Snapshots")).toBeInTheDocument();
+      expect(screen.getByLabelText("Show snapshots of")).toBeInTheDocument();
     });
 
-    // Click dropdown and select all snapshots
-    await userEvent.click(screen.getByText("Local Snapshots"));
-    await userEvent.click(screen.getByText("All Snapshots"));
+    await userEvent.selectOptions(screen.getByLabelText("Show snapshots of"), "All Snapshots");
 
     expect(setDefaultSnapshotViewAll).toHaveBeenCalledWith(true);
 
