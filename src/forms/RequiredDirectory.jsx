@@ -31,17 +31,18 @@ export function RequiredDirectory(component, label, name, props = {}) {
   }
 
   const invalid = stateProperty(component, name, null) === "";
+  const inputID = "directoryInput-" + name;
 
   return (
     <FieldFrame className="required">
       {label && (
-        <label htmlFor="directoryInput" className="required">
+        <label htmlFor={inputID} className="required">
           <Eyebrow>{label}</Eyebrow>
         </label>
       )}
       <div className="flex items-center gap-2">
         <Control
-          id="directoryInput"
+          id={inputID}
           name={name}
           invalid={invalid}
           value={stateProperty(component, name)}

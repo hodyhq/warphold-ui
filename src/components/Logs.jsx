@@ -7,18 +7,25 @@ import PropTypes from "prop-types";
 /**
  * Log level to tone. The server sends the numeric zap levels, but the field is
  * typed loosely enough that the names show up too, so both are mapped.
+ * Zap's numeric levels: -1 debug, 0 info, 1 warn, 2+ error/dpanic/panic/fatal.
  */
 const LOG_LEVEL_CLASS = {
-  0: "text-dim",
   debug: "text-dim",
-  1: "text-ink",
   info: "text-ink",
-  2: "font-bold text-warn",
   warn: "font-bold text-warn",
   warning: "font-bold text-warn",
-  3: "font-bold text-bad",
   error: "font-bold text-bad",
 };
+
+function toneForLevel(level) {
+  if (typeof level === "number") {
+    if (level <= -1) return "text-dim";
+    if (level === 0) return "text-ink";
+    if (level === 1) return "font-bold text-warn";
+    return "font-bold text-bad";
+  }
+  return LOG_LEVEL_CLASS[level];
+}
 
 export class Logs extends Component {
   constructor() {
@@ -137,10 +144,7 @@ export class Logs extends Component {
             <div
               key={v.ts + "-" + v.msg}
               data-log-level={v.level}
-              className={clsx(
-                "px-3 py-[2px] break-words whitespace-pre-wrap",
-                LOG_LEVEL_CLASS[v.level] ?? "text-muted",
-              )}
+              className={clsx("px-3 py-[2px] break-words whitespace-pre-wrap", toneForLevel(v.level) ?? "text-muted")}
               title={this.fullLogTime(v.ts)}
             >
               {this.formatLogTime(v.ts)} {v.msg} {this.formatLogParams(v)}

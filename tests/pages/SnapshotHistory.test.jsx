@@ -550,6 +550,38 @@ describe("SnapshotHistory", () => {
 
       // This test will fail until we add proper null checks for pins
     });
+
+    it("should handle missing retention field when omitzero omits it", async () => {
+      // Simulate omitzero scenario where retention field is omitted
+      const mockResponse = {
+        data: {
+          snapshots: [
+            {
+              id: "snap1",
+              startTime: "2023-01-01T12:00:00Z",
+              rootID: "root1",
+              summary: {
+                size: 104857600,
+                files: 100,
+                dirs: 10,
+              },
+              // retention field is omitted due to omitzero
+              pins: [],
+            },
+          ],
+          unfilteredCount: 1,
+          uniqueCount: 1,
+        },
+      };
+
+      axios.get.mockResolvedValue(mockResponse);
+      renderWithProviders(<SnapshotHistory />);
+
+      // Should not throw when trying to map over a missing retention list
+      await waitFor(() => {
+        expect(screen.getByRole("table")).toBeInTheDocument();
+      });
+    });
   });
 });
 

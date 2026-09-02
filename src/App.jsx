@@ -70,11 +70,9 @@ export default class App extends Component {
     axios
       .get("/api/v1/repo/status")
       .then((result) => {
+        this.setState({ isRepositoryConnected: result.data.connected });
         if (result.data.description) {
-          this.setState({
-            repoDescription: result.data.description,
-            isRepositoryConnected: result.data.connected,
-          });
+          this.setState({ repoDescription: result.data.description });
         }
       })
       .catch((_) => {

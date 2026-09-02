@@ -30,16 +30,18 @@ export function OptionalDirectory(component, label, name, props = {}) {
     setDeepStateProperty(component, name, path);
   }
 
+  const inputID = "directoryInput-" + name;
+
   return (
     <FieldFrame className="required">
       {label && (
-        <label htmlFor="directoryInput" className="required">
+        <label htmlFor={inputID} className="required">
           <Eyebrow>{label}</Eyebrow>
         </label>
       )}
       <div className="flex items-center gap-2">
         <Control
-          id="directoryInput"
+          id={inputID}
           name={name}
           value={stateProperty(component, name)}
           data-testid={"control-" + name}

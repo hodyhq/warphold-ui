@@ -217,6 +217,17 @@ describe("AgentHome", () => {
     expect(screen.queryByTestId("run-log")).not.toBeInTheDocument();
   });
 
+  it("shows no uploaded bytes rather than throwing when a task has no counters", async () => {
+    tasks.mockResolvedValue({
+      tasks: [task({ id: "t2", counters: undefined as unknown as TaskInfo["counters"] })],
+    });
+
+    render(<AgentHome />);
+
+    const row = await screen.findByText("/home/user", { selector: "div[data-row] span" });
+    expect(within(row.closest("div[data-row]") as HTMLElement).getByText("—")).toBeInTheDocument();
+  });
+
   it("starts a backup and re-reads the engine", async () => {
     render(<AgentHome />);
 

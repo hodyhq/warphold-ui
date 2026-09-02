@@ -398,7 +398,7 @@ class SnapshotHistoryInternal extends Component {
         width: "",
         cell: (x) => (
           <span className="flex flex-wrap items-center gap-[6px]">
-            {x.cell.getValue().map((l) => (
+            {(x.cell.getValue() || []).map((l) => (
               <Pill key={l} tone={pillTone(l)}>
                 {l}
               </Pill>

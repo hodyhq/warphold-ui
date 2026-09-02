@@ -176,7 +176,7 @@ function taskSource(task: TaskInfo, sources: SourceStatus[]): string {
 function runRows(tasks: TaskInfo[], sources: SourceStatus[]): TableRow[] {
   return tasks.map((t) => {
     const result = RESULT[t.status] ?? { text: t.status.toLowerCase(), tone: "ink" as const };
-    const uploaded = t.counters["Uploaded Bytes"]?.value ?? 0;
+    const uploaded = t.counters?.["Uploaded Bytes"]?.value ?? 0;
     return {
       key: t.id,
       cells: [

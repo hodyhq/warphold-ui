@@ -237,7 +237,7 @@ class TaskInternal extends Component {
           <Col>
             <label className="flex flex-col gap-[6px]">
               <Eyebrow>Finished</Eyebrow>
-              <Input type="text" readOnly={true} value={new Date(task.endTime).toLocaleString()} />
+              <Input type="text" readOnly={true} value={task.endTime ? new Date(task.endTime).toLocaleString() : "—"} />
             </label>
           </Col>
         </Row>
