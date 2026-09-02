@@ -31,7 +31,7 @@ const EMPTY_OVERVIEW: Overview = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockedSettings.mockResolvedValue({ fleet_name: "moinzadeh-home" });
+  mockedSettings.mockResolvedValue({ fleet_name: "moinzadeh-home", poll_interval: 300 });
   mockedOverview.mockResolvedValue(EMPTY_OVERVIEW);
   window.history.pushState({}, "", "/");
 });

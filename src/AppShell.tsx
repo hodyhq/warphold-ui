@@ -6,9 +6,11 @@ import { fleet } from "./api/fleet";
 import { Button, Nav, type NavItem } from "./design/components";
 import { Device } from "./pages/fleet/Device";
 import { Devices } from "./pages/fleet/Devices";
+import { Groups } from "./pages/fleet/Groups";
 import { Login } from "./pages/fleet/Login";
 import { Mark } from "./pages/fleet/Mark";
 import { Overview } from "./pages/fleet/Overview";
+import { Targets } from "./pages/fleet/Targets";
 import { Placeholder } from "./pages/fleet/Placeholder";
 
 const NAV: NavItem[] = [
@@ -92,9 +94,9 @@ function FleetRoutes({ activated }: { activated: boolean }) {
         <Route path="/fleet" element={<Overview />} />
         <Route path="/fleet/devices" element={<Devices />} />
         <Route path="/fleet/devices/:id" element={<Device />} />
-        <Route path="/fleet/groups" element={<Placeholder title="Groups" />} />
+        <Route path="/fleet/groups" element={<Groups />} />
         <Route path="/fleet/policies" element={<Placeholder title="Policy templates" />} />
-        <Route path="/fleet/targets" element={<Placeholder title="Targets" />} />
+        <Route path="/fleet/targets" element={<Targets />} />
         <Route path="/fleet/settings" element={<Placeholder title="Settings" />} />
       </Route>
       <Route path="*" element={<Navigate to="/fleet" replace />} />

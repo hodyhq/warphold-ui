@@ -177,5 +177,38 @@ export interface Overview {
   devices: OverviewDevice[];
 }
 
-/** Fleet settings are a flat key/value table (`fleet/store/settings.go`). */
-export type Settings = Record<string, string>;
+/**
+ * The two settings the server exposes (`fleet/api/admin_settings.go`). The
+ * settings table holds more - seal_salt among them - which the endpoint
+ * deliberately neither reads back nor accepts.
+ */
+export interface Settings {
+  fleet_name: string;
+  /** Agent check-in interval in seconds; the server clamps it to 15..3600. */
+  poll_interval: number;
+}
+
+/**
+ * The parts of Kopia's `policy.Policy` the template form edits, by their Go
+ * JSON tags (`snapshot/policy`). Everything else a policy can carry rides
+ * along in the index signature, so editing a template through the form never
+ * drops a section the JSON editor (or a future Kopia) put there.
+ */
+export interface KopiaPolicy {
+  files?: { ignore?: string[]; [key: string]: unknown };
+  scheduling?: {
+    intervalSeconds?: number;
+    timeOfDay?: { hour: number; min: number }[];
+    manual?: boolean;
+    [key: string]: unknown;
+  };
+  retention?: {
+    keepLatest?: number;
+    keepDaily?: number;
+    keepWeekly?: number;
+    keepMonthly?: number;
+    [key: string]: unknown;
+  };
+  compression?: { compressorName?: string; [key: string]: unknown };
+  [key: string]: unknown;
+}

@@ -46,6 +46,23 @@ export function relativeTime(iso: string, now: number = Date.now()): string {
   return hours < 48 ? `${hours} h ago` : `${Math.floor(hours / 24)} d ago`;
 }
 
+/**
+ * Time left until an ISO timestamp, e.g. "41 min", "6 d"; "expired" once it is
+ * past. The mirror of relativeTime, for deadlines rather than ages.
+ */
+export function relativeUntil(iso: string, now: number = Date.now()): string {
+  const ms = new Date(iso).getTime() - now;
+  if (!Number.isFinite(ms) || ms <= 0) {
+    return "expired";
+  }
+  const minutes = Math.floor(ms / 60_000);
+  if (minutes < 60) {
+    return `${minutes} min`;
+  }
+  const hours = Math.floor(ms / 3_600_000);
+  return hours < 48 ? `${hours} h` : `${Math.floor(hours / 24)} d`;
+}
+
 /** How long a run took, e.g. "12s", "1m 12s", "2h 5m". */
 export function formatDuration(startISO: string, endISO: string): string {
   const seconds = Math.max(0, Math.round((new Date(endISO).getTime() - new Date(startISO).getTime()) / 1000));

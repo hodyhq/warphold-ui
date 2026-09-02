@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatBytes, formatDuration, relativeTime, splitBytes } from "../format";
+import { formatBytes, formatDuration, relativeTime, relativeUntil, splitBytes } from "../format";
 
 const NOW = Date.parse("2026-09-02T12:00:00Z");
 
@@ -49,5 +49,20 @@ describe("formatDuration", () => {
 
   it("clamps a run that finished before it started", () => {
     expect(formatDuration(ago(0), ago(5_000))).toBe("0s");
+  });
+});
+
+describe("relativeUntil", () => {
+  const now = Date.parse("2026-09-02T12:00:00Z");
+
+  it("counts down in the units the token line shows", () => {
+    expect(relativeUntil("2026-09-02T12:41:00Z", now)).toBe("41 min");
+    expect(relativeUntil("2026-09-03T08:00:00Z", now)).toBe("20 h");
+    expect(relativeUntil("2026-09-08T12:00:00Z", now)).toBe("6 d");
+  });
+
+  it("reads as expired once the deadline is past", () => {
+    expect(relativeUntil("2026-09-02T11:59:00Z", now)).toBe("expired");
+    expect(relativeUntil("not a date", now)).toBe("expired");
   });
 });

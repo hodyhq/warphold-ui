@@ -168,8 +168,12 @@ export const fleet = {
   },
 
   settings: () => get<Settings>("/settings"),
-  async setSetting(key: string, value: string): Promise<void> {
-    await fleetClient.put("/settings", { key, value });
+  /**
+   * PUT takes a partial object and answers with the merged result, so one
+   * changed field never has to be sent alongside the values it did not touch.
+   */
+  async setSetting<K extends keyof Settings>(key: K, value: Settings[K]): Promise<Settings> {
+    return (await fleetClient.put<Settings>("/settings", { [key]: value })).data;
   },
 };
 
