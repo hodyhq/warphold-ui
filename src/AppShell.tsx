@@ -6,6 +6,7 @@ import { fleet } from "./api/fleet";
 import { Button, Nav, type NavItem } from "./design/components";
 import { Login } from "./pages/fleet/Login";
 import { Mark } from "./pages/fleet/Mark";
+import { Overview } from "./pages/fleet/Overview";
 import { Placeholder } from "./pages/fleet/Placeholder";
 
 const NAV: NavItem[] = [
@@ -86,7 +87,7 @@ function FleetRoutes({ activated }: { activated: boolean }) {
       {/* Before activation there is nothing to show but the wizard, so the
           whole shell is replaced by a redirect to it. */}
       <Route element={activated ? <FleetLayout /> : <Navigate to="/fleet/activate" replace />}>
-        <Route path="/fleet" element={<Placeholder title="Overview" />} />
+        <Route path="/fleet" element={<Overview />} />
         <Route path="/fleet/devices" element={<Placeholder title="Devices" />} />
         <Route path="/fleet/devices/:id" element={<Placeholder title="Device" />} />
         <Route path="/fleet/groups" element={<Placeholder title="Groups" />} />

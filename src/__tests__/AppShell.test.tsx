@@ -5,20 +5,34 @@ import "@testing-library/jest-dom";
 import { AppShell } from "../AppShell";
 import { detectMode } from "../mode";
 import { fleet } from "../api/fleet";
+import type { Overview } from "../api/types";
 
 vi.mock("../mode", () => ({ detectMode: vi.fn() }));
 vi.mock("../App.jsx", () => ({ default: () => <div>single-user app</div> }));
 vi.mock(import("../api/fleet"), async (importOriginal) => ({
   ...(await importOriginal()),
-  fleet: { settings: vi.fn() } as unknown as typeof import("../api/fleet").fleet,
+  fleet: { settings: vi.fn(), overview: vi.fn() } as unknown as typeof import("../api/fleet").fleet,
 }));
 
 const mockedDetect = vi.mocked(detectMode);
 const mockedSettings = vi.mocked(fleet.settings);
+const mockedOverview = vi.mocked(fleet.overview);
+
+/** Enough of GET /overview for the shell's default route to render. */
+const EMPTY_OVERVIEW: Overview = {
+  fleet_name: "moinzadeh-home",
+  counts: { agents: 0, green: 0, yellow: 0, red: 0, unknown: 0, targets: 0 },
+  stored_bytes: 0,
+  dedup_ratio: null,
+  last24h: { completed: 0, failed: 0, buckets: [] },
+  latest_failure: null,
+  devices: [],
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockedSettings.mockResolvedValue({ fleet_name: "moinzadeh-home" });
+  mockedOverview.mockResolvedValue(EMPTY_OVERVIEW);
   window.history.pushState({}, "", "/");
 });
 
@@ -31,7 +45,7 @@ describe("AppShell", () => {
     expect(await screen.findByText("WARPHOLD")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Devices" })).toHaveAttribute("href", "/fleet/devices");
     expect(await screen.findByText("moinzadeh-home")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Overview" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent("protected right now");
   });
 
   it("sends an unactivated fleet to the activation wizard", async () => {
@@ -63,7 +77,7 @@ describe("AppShell", () => {
 
     await userEvent.click(retry);
 
-    expect(await screen.findByRole("heading", { name: "Overview" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent("protected right now");
   });
 
   it("renders the agent placeholder in agent mode", async () => {

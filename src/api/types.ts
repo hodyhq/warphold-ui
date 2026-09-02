@@ -2,9 +2,7 @@
  * Response shapes of the Fleet control-plane API.
  *
  * Every field name here is copied from the Go JSON tag that produces it
- * (`fleet/api/*.go` in the server repo), which is why they are snake_case and
- * why `Report` is PascalCase: `store.Report` carries no JSON tags at all, so
- * encoding/json emits its Go field names verbatim.
+ * (`fleet/api/*.go` in the server repo), which is why they are all snake_case.
  */
 
 /** Traffic light from `fleet/health`. */
@@ -38,20 +36,20 @@ export interface AgentOut {
   health: Health;
 }
 
-/** `store.Report` - no JSON tags, so Go field names are the wire names. */
+/** `store.Report`; its JSON tags are the report table's column names. */
 export interface Report {
-  ID: number;
-  AgentID: string;
-  TaskID: string;
-  Kind: string;
-  Source: string;
-  StartedAt: string;
-  FinishedAt: string;
-  Status: string;
-  Bytes: number;
-  Files: number;
-  SnapshotID: string;
-  Stderr: string;
+  id: number;
+  agent_id: string;
+  task_id: string;
+  kind: string;
+  source: string;
+  started_at: string;
+  finished_at: string;
+  status: string;
+  bytes: number;
+  files: number;
+  snapshot_id: string;
+  stderr: string;
 }
 
 /** GET /agents/{id}: agentOut flattened alongside the last 20 reports. */
