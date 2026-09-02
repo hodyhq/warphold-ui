@@ -118,16 +118,16 @@ describe("Logs Component", () => {
     });
   });
 
-  it("applies correct CSS classes based on log level", async () => {
+  it("tones each line by its log level", async () => {
     axiosMock.onGet("/api/v1/tasks/test-task-123/logs").reply(200, mockLogsResponse);
 
     const { container } = render(<Logs taskID="test-task-123" />);
 
     await waitFor(() => {
-      const rows = container.querySelectorAll("tr");
-      expect(rows[0]).toHaveClass("loglevel-info");
-      expect(rows[1]).toHaveClass("loglevel-warning");
-      expect(rows[2]).toHaveClass("loglevel-error");
+      const rows = container.querySelectorAll("[data-log-level]");
+      expect(rows[0]).toHaveClass("text-ink");
+      expect(rows[1]).toHaveClass("text-warn");
+      expect(rows[2]).toHaveClass("text-bad");
     });
   });
 
@@ -281,9 +281,9 @@ describe("Logs Component", () => {
       expect(screen.queryByText("Loading ...")).not.toBeInTheDocument();
     });
 
-    // Should render an empty table
-    expect(container.querySelector("table")).toBeInTheDocument();
-    expect(container.querySelectorAll("tbody tr")).toHaveLength(0);
+    // Should render the log panel with no lines in it
+    expect(screen.getByTestId("task-logs")).toBeInTheDocument();
+    expect(container.querySelectorAll("[data-log-level]")).toHaveLength(0);
   });
 
   it("shows full timestamp on hover", async () => {
@@ -303,8 +303,7 @@ describe("Logs Component", () => {
       expect(screen.getByText(/Hover test message/)).toBeInTheDocument();
     });
 
-    // Find the td element with class "elide" that contains the title
-    const cell = container.querySelector("td.elide");
+    const cell = container.querySelector("[data-log-level]");
     expect(cell).toBeTruthy();
 
     const title = cell.getAttribute("title");

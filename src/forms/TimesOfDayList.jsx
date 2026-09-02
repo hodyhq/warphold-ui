@@ -1,7 +1,6 @@
 import React from "react";
-import Form from "react-bootstrap/Form";
-import FormGroup from "react-bootstrap/FormGroup";
 import { stateProperty } from ".";
+import { Control, FieldFrame } from "./FormField";
 
 export function TimesOfDayList(component, name, props = {}) {
   function parseTimeOfDay(v) {
@@ -58,18 +57,28 @@ export function TimesOfDayList(component, name, props = {}) {
     return result;
   }
 
+  // An entry that could not be parsed is kept as the raw string, which is what
+  // makes the field invalid. Bootstrap rendered this message always and hid it
+  // with CSS; without that stylesheet it has to be conditional to stay true.
+  const value = stateProperty(component, name);
+  const invalid = Array.isArray(value) && value.some((tod) => typeof tod !== "object");
+
   return (
-    <FormGroup>
-      <Form.Control
-        size="sm"
-        name={name}
-        value={toMultilineString(stateProperty(component, name))}
-        onChange={(e) => component.handleChange(e, fromMultilineString)}
+    <FieldFrame>
+      <Control
         as="textarea"
+        name={name}
         rows="5"
+        invalid={invalid}
+        value={toMultilineString(value)}
+        onChange={(e) => component.handleChange(e, fromMultilineString)}
         {...props}
-      ></Form.Control>
-      <Form.Control.Feedback type="invalid">Invalid Times of Day</Form.Control.Feedback>
-    </FormGroup>
+      />
+      {invalid && (
+        <span role="alert" className="text-[12px] text-bad">
+          Invalid Times of Day
+        </span>
+      )}
+    </FieldFrame>
   );
 }

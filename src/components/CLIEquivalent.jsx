@@ -2,9 +2,7 @@ import { faCopy, faTerminal } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import axios from "axios";
 import React, { useRef, useState } from "react";
-import Button from "react-bootstrap/Button";
-import FormControl from "react-bootstrap/FormControl";
-import InputGroup from "react-bootstrap/InputGroup";
+import { Button, Input } from "../design/components";
 import PropTypes from "prop-types";
 
 export function CLIEquivalent(props) {
@@ -35,33 +33,30 @@ export function CLIEquivalent(props) {
   }
 
   return (
-    <>
-      <InputGroup size="sm">
-        <Button
-          data-testid="show-cli-button"
-          size="sm"
-          title="Click to show CLI equivalent"
-          variant="submit"
-          onClick={() => setVisible(!visible)}
-        >
-          <FontAwesomeIcon size="sm" icon={faTerminal} />
+    <div className="flex items-center gap-2 pt-4">
+      <Button
+        data-testid="show-cli-button"
+        title="Click to show CLI equivalent"
+        aria-expanded={visible}
+        onClick={() => setVisible(!visible)}
+      >
+        <FontAwesomeIcon icon={faTerminal} />
+      </Button>
+      {visible && (
+        <Button title="Copy to clipboard" onClick={copyToClibopard}>
+          <FontAwesomeIcon icon={faCopy} />
         </Button>
-        {visible && (
-          <Button size="sm" variant="success" title="Copy to clipboard" onClick={copyToClibopard}>
-            <FontAwesomeIcon size="sm" icon={faCopy} />
-          </Button>
-        )}
-        {visible && (
-          <FormControl
-            size="sm"
-            ref={ref}
-            className="cli-equivalent"
-            readOnly={true}
-            value={`${cliInfo.executable} ${props.command}`}
-          />
-        )}
-      </InputGroup>
-    </>
+      )}
+      {visible && (
+        <Input
+          ref={ref}
+          className="grow font-mono text-[12px]"
+          aria-label="CLI equivalent"
+          readOnly={true}
+          value={`${cliInfo.executable} ${props.command}`}
+        />
+      )}
+    </div>
   );
 }
 

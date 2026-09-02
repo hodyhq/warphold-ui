@@ -144,7 +144,7 @@ describe("StringList component", () => {
     const textarea = getByRole("textbox");
     expect(textarea.tagName).toBe("TEXTAREA");
     expect(textarea.rows).toBe(5);
-    expect(textarea.classList.contains("form-control-sm")).toBe(true);
+    expect(textarea.classList.contains("border-line-strong")).toBe(true);
   });
 
   it("passes additional props to Form.Control", () => {
@@ -194,12 +194,12 @@ describe("StringList component", () => {
     expect(textarea.value).toBe("nested\nvalue");
   });
 
-  it("maintains proper Form.Group structure", () => {
+  it("wraps the textarea in a field", () => {
     const { container } = render(<MockFormComponent fieldName="testField" />);
 
-    const formGroup = container.querySelector(".col");
-    expect(formGroup).toBeTruthy();
-    expect(formGroup.querySelector("textarea.form-control")).toBeTruthy();
+    const field = container.firstChild;
+    expect(field).toBeTruthy();
+    expect(field.querySelector("textarea")).toBeTruthy();
   });
 
   it("preserves whitespace in list items", () => {

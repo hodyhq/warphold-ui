@@ -148,7 +148,7 @@ describe("SnapshotEstimation", () => {
       await waitForLoadAndTriggerIntervals(/Bytes:/);
 
       // Check that spinner is present for running task
-      expect(document.querySelector(".spinner-border")).toBeInTheDocument();
+      expect(screen.getByRole("status", { name: "Loading" })).toBeInTheDocument();
 
       // Check counters display
       expect(screen.getByText("1 MB")).toBeInTheDocument(); // Bytes
@@ -186,7 +186,7 @@ describe("SnapshotEstimation", () => {
       });
 
       // Check that spinner is not present for completed task
-      expect(document.querySelector(".spinner-border")).not.toBeInTheDocument();
+      expect(screen.queryByRole("status", { name: "Loading" })).not.toBeInTheDocument();
 
       // Check that cancel button is not present for completed task
       expect(screen.queryByText("Cancel")).not.toBeInTheDocument();

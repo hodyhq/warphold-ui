@@ -182,7 +182,7 @@ describe("Policies component - loaded state", () => {
     renderWithProviders(<Policies />);
 
     await waitFor(() => {
-      expect(screen.getByText("Page Size: 10")).toBeInTheDocument();
+      expect(screen.getByLabelText("Page size")).toHaveValue("10");
     });
   });
 });

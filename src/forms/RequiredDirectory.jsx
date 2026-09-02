@@ -1,16 +1,15 @@
 import React from "react";
-import Button from "react-bootstrap/Button";
-import Form from "react-bootstrap/Form";
-import { Col, FormGroup, FormControl, InputGroup } from "react-bootstrap";
 import { faFolderOpen } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { stateProperty } from ".";
 import { setDeepStateProperty } from "../utils/deepstate";
+import { Button, Eyebrow } from "../design/components";
+import { Control, FieldFrame } from "./FormField";
 
 /**
  * This functions returns a directory selector that allows the user to select a directory.
- * The selections is invoked using a button that calls a functions within the electron app.
- * If the electron app is not present, the button is not visible. The path is required.
+ * The selections is invoked using a button that calls a functions within the desktop app.
+ * If the desktop app is not present, the button is not visible. The path is required.
  *
  * @param {*} component
  * The component that this function is called from
@@ -31,27 +30,37 @@ export function RequiredDirectory(component, label, name, props = {}) {
     setDeepStateProperty(component, name, path);
   }
 
+  const invalid = stateProperty(component, name, null) === "";
+
   return (
-    <FormGroup>
-      {label && <Form.Label className="required">{label}</Form.Label>}
-      <InputGroup as={Col}>
-        <FormControl
+    <FieldFrame className="required">
+      {label && (
+        <label htmlFor="directoryInput" className="required">
+          <Eyebrow>{label}</Eyebrow>
+        </label>
+      )}
+      <div className="flex items-center gap-2">
+        <Control
           id="directoryInput"
-          size="sm"
           name={name}
-          isInvalid={stateProperty(component, name, null) === ""}
+          invalid={invalid}
           value={stateProperty(component, name)}
           data-testid={"control-" + name}
           onChange={component.handleChange}
+          aria-label={label || "Directory path"}
           {...props}
-        ></FormControl>
+        />
         {window.kopiaUI && (
-          <Button size="sm" onClick={() => window.kopiaUI.selectDirectory(onDirectorySelected)}>
+          <Button title="Browse for a directory" onClick={() => window.kopiaUI.selectDirectory(onDirectorySelected)}>
             <FontAwesomeIcon icon={faFolderOpen} />
           </Button>
         )}
-        <Form.Control.Feedback type="invalid">Required field</Form.Control.Feedback>
-      </InputGroup>
-    </FormGroup>
+      </div>
+      {invalid && (
+        <span role="alert" className="text-[12px] text-bad">
+          Required field
+        </span>
+      )}
+    </FieldFrame>
   );
 }
