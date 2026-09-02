@@ -21,7 +21,7 @@ export function Button({ variant = "default", className, type = "button", ...pro
     <button
       type={type}
       className={clsx(
-        "cursor-pointer rounded-sm border px-[14px] py-[9px] text-[12px] font-semibold tracking-[0.06em] uppercase",
+        "cursor-pointer rounded-sm border px-[14px] py-[9px] text-[12px] font-semibold tracking-[0.06em] whitespace-nowrap uppercase",
         "disabled:cursor-not-allowed disabled:opacity-50",
         variants[variant],
         className,

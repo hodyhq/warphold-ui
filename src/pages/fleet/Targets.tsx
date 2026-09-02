@@ -65,10 +65,10 @@ export function Targets() {
 
   return (
     <div className="flex min-h-0 grow flex-col gap-[18px]">
-      <div className="flex items-end justify-between gap-6">
+      <div className="flex flex-col items-start gap-4 md:flex-row md:items-end md:justify-between md:gap-6">
         <div>
           <Eyebrow>Targets</Eyebrow>
-          <h1 className="font-display m-0 mt-2 text-[36px] leading-none font-extrabold tracking-[-0.02em]">
+          <h1 className="font-display m-0 mt-2 text-[28px] leading-none font-extrabold tracking-[-0.02em] md:text-[36px]">
             Where backups live
           </h1>
         </div>
@@ -83,7 +83,7 @@ export function Targets() {
           gets its own repository inside it.
         </p>
       ) : (
-        <div className="grid grid-cols-2 gap-[18px]">
+        <div className="grid grid-cols-1 gap-[18px] md:grid-cols-2">
           {targets.map((t) => {
             const count = devices(t.id);
             return (
@@ -160,7 +160,7 @@ const KINDS = [
 /** The kind picker, shared by this dialog and the Activate wizard's step 3. */
 export function KindPicker({ kind, onPick }: { kind: Target["kind"]; onPick: (kind: Target["kind"]) => void }) {
   return (
-    <fieldset className="m-0 grid grid-cols-2 gap-[14px] border-0 p-0">
+    <fieldset className="m-0 grid grid-cols-1 gap-[14px] border-0 p-0 sm:grid-cols-2">
       <legend className="text-muted mb-[6px] font-mono text-[11px] tracking-[0.12em] uppercase">Kind</legend>
       {KINDS.map((k) => (
         // Native radios: one tab stop for the group, arrow keys between the
@@ -217,7 +217,7 @@ export function TargetFields({ value, onChange }: { value: TargetInput; onChange
           />
         </Field>
       ) : (
-        <div className="grid grid-cols-2 gap-[14px]">
+        <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-2">
           <Field label="Bucket">
             <Input value={value.bucket ?? ""} autoComplete="off" onChange={(e) => set({ bucket: e.target.value })} />
           </Field>

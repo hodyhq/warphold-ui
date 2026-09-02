@@ -66,7 +66,7 @@ export function Dialog({ open, onClose, title, children, className }: DialogProp
   return (
     <div
       data-testid="dialog-overlay"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(22,24,29,0.78)]"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(22,24,29,0.78)] p-4"
       onClick={onClose}
     >
       <Card
@@ -75,7 +75,10 @@ export function Dialog({ open, onClose, title, children, className }: DialogProp
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={clsx("w-[560px] max-w-[92vw] gap-[18px] border-line-strong outline-none", className)}
+        className={clsx(
+          "max-h-[85vh] w-[560px] max-w-full gap-[18px] overflow-y-auto border-line-strong outline-none",
+          className,
+        )}
         onClick={(e) => e.stopPropagation()}
       >
         <h2 id={titleId} className="m-0 font-display text-[24px] font-extrabold tracking-[-0.02em]">

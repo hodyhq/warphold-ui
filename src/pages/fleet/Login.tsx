@@ -39,7 +39,7 @@ export function Login() {
 
   return (
     <div className="flex min-h-screen items-center justify-center px-6">
-      <form onSubmit={submit} className="flex w-[380px] flex-col gap-[18px]">
+      <form onSubmit={submit} className="flex w-full max-w-[380px] flex-col gap-[18px]">
         <div className="flex items-center gap-[10px]">
           <Mark size={24} />
           <span className="font-display text-[15px] font-extrabold tracking-[0.02em]">WARPHOLD</span>

@@ -143,15 +143,15 @@ export function Devices() {
 
   return (
     <div className="flex min-h-0 grow flex-col gap-[18px]">
-      <div className="flex items-end justify-between gap-6">
+      <div className="flex flex-col items-start gap-4 md:flex-row md:items-end md:justify-between md:gap-6">
         <div>
           <Eyebrow>Devices</Eyebrow>
-          <h1 className="font-display m-0 mt-2 text-[36px] leading-none font-extrabold tracking-[-0.02em]">
+          <h1 className="font-display m-0 mt-2 text-[28px] leading-none font-extrabold tracking-[-0.02em] md:text-[36px]">
             {live.length} enrolled
           </h1>
         </div>
         {rows.length > 0 && (
-          <div className="flex flex-wrap justify-end gap-2">
+          <div className="flex flex-wrap gap-2 md:justify-end">
             <Chip on={filter === "all"} onClick={() => setFilter("all")}>
               All
             </Chip>

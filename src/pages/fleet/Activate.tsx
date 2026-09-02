@@ -32,12 +32,12 @@ const FIRST_TOKEN_TTL = 3600;
 
 function Rail({ step }: { step: number }) {
   return (
-    <aside className="bg-panel border-line flex w-[300px] shrink-0 flex-col gap-[6px] border-r px-8 py-9">
+    <aside className="bg-panel border-line flex w-full shrink-0 flex-col gap-[6px] border-b px-5 py-6 md:w-[300px] md:border-r md:border-b-0 md:px-8 md:py-9">
       <div className="mb-[26px] flex items-center gap-[10px]">
         <Mark size={24} />
         <span className="font-display text-[15px] font-extrabold">ACTIVATE FLEET</span>
       </div>
-      <ol className="m-0 flex list-none flex-col gap-[6px] p-0">
+      <ol className="m-0 flex list-none flex-row flex-wrap gap-x-5 gap-y-0 p-0 md:flex-col md:gap-[6px]">
         {STEPS.map((label, i) => {
           const n = i + 1;
           const tone =
@@ -57,7 +57,7 @@ function Rail({ step }: { step: number }) {
           );
         })}
       </ol>
-      <p className="text-dim mt-auto m-0 font-mono text-[11px] leading-[1.6]">
+      <p className="text-dim mt-auto m-0 hidden font-mono text-[11px] leading-[1.6] md:block">
         Nothing to download. Fleet is already inside this WarpHold; this turns it on.
       </p>
     </aside>
@@ -133,9 +133,9 @@ export function Activate({ onActivated }: { onActivated?: () => void }) {
   const step2Ready = email.trim().includes("@") && password.length >= MIN_SECRET;
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen flex-col md:flex-row">
       <Rail step={step} />
-      <main className="flex min-w-0 grow flex-col gap-[22px] px-12 py-11">
+      <main className="flex min-w-0 grow flex-col gap-[22px] px-5 py-8 md:px-12 md:py-11">
         {step === 1 && (
           <>
             <div>
@@ -156,7 +156,7 @@ export function Activate({ onActivated }: { onActivated?: () => void }) {
               Find it in the server log or at &lt;state dir&gt;/setup-token. It proves you have access to this server,
               and it is deleted once the fleet is activated.
             </p>
-            <div className="grid grid-cols-2 gap-[14px]">
+            <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-2">
               <Field label="Passphrase">
                 <Input
                   type="password"

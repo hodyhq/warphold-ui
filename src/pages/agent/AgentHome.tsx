@@ -344,9 +344,9 @@ export function AgentHome() {
     <div className="relative flex min-h-screen flex-col overflow-hidden">
       <div
         aria-hidden="true"
-        className="bg-panel pointer-events-none absolute top-0 left-[-120px] h-full w-[520px] -skew-x-12"
+        className="bg-panel pointer-events-none absolute top-0 left-[-120px] hidden h-full w-[520px] -skew-x-12 md:block"
       />
-      <header className="relative flex items-center gap-4 px-11 py-[22px]">
+      <header className="relative flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-4 md:flex-nowrap md:px-11 md:py-[22px]">
         <Mark />
         <span className="font-display text-[15px] font-extrabold">WARPHOLD</span>
         <span className="font-mono text-[12px] text-dim">agent · {window.location.host}</span>
@@ -354,24 +354,26 @@ export function AgentHome() {
         <span className="font-mono text-[12px] text-muted">{data.vault}</span>
       </header>
 
-      <div className="relative grid min-h-0 grow grid-cols-[1fr_1.4fr] gap-11 px-11 pt-[10px] pb-8">
+      <div className="relative grid min-h-0 grow grid-cols-1 gap-8 px-5 pt-[10px] pb-8 md:grid-cols-[1fr_1.4fr] md:gap-11 md:px-11">
         <section className="flex flex-col gap-[22px]">
           <div>
             <Eyebrow>This machine</Eyebrow>
-            <h1 className="font-display m-0 mt-2 text-[52px] leading-[0.98] font-extrabold tracking-[-0.02em]">
+            <h1 className="font-display m-0 mt-2 text-[38px] leading-[0.98] font-extrabold tracking-[-0.02em] md:text-[52px]">
               <span className={state.ok ? toneText.good : toneText.bad}>{state.ok ? "OK" : "ATTENTION"}</span>
               <br />
-              <span className="text-[24px] font-semibold text-ink-soft">{state.note}</span>
+              <span className="text-[20px] font-semibold text-ink-soft md:text-[24px]">{state.note}</span>
             </h1>
           </div>
 
           <div className="grid grid-cols-2 gap-px border border-line bg-line">
-            <div className="bg-ground px-4 py-[14px]" data-testid="kpi-protected">
+            <div className="bg-ground px-3 py-3 md:px-4 md:py-[14px]" data-testid="kpi-protected">
               <Kpi label="Protected" value={protectedValue} unit={protectedUnit} />
             </div>
-            <div className="bg-ground px-4 py-[14px]">
+            <div className="bg-ground px-3 py-3 md:px-4 md:py-[14px]">
               <Eyebrow>Next</Eyebrow>
-              <div className="font-display mt-2 text-[28px] leading-none font-extrabold text-ember">{next}</div>
+              <div className="font-display mt-2 text-[22px] leading-none font-extrabold text-ember md:text-[28px]">
+                {next}
+              </div>
             </div>
           </div>
 
@@ -465,7 +467,7 @@ export function AgentHome() {
       </div>
 
       {stale && (
-        <p className="relative m-0 px-11 pb-6 font-mono text-[12px] text-dim">
+        <p className="relative m-0 px-5 pb-6 font-mono text-[12px] text-dim md:px-11">
           Cannot reach the agent; showing the last state.
         </p>
       )}

@@ -23,45 +23,50 @@ export interface TableProps {
 export function Table({ columns, rows, template, onRowClick, className }: TableProps) {
   const clickable = Boolean(onRowClick);
   return (
-    <div className={className}>
-      <div
-        className="grid items-center gap-4 border-b border-line-strong py-[13px] font-mono text-[11px] tracking-[0.12em] text-muted uppercase"
-        style={{ gridTemplateColumns: template }}
-      >
-        {columns.map((c) => (
-          <span key={c.key}>{c.label}</span>
-        ))}
-      </div>
-      {rows.map((row) => (
+    // A row of this many columns cannot narrow to a phone, so the table keeps
+    // its width and scrolls inside its own box; min-w-0 keeps that box from
+    // widening the flex or grid item it sits in (which would scroll the page).
+    <div className={clsx("min-w-0 overflow-x-auto", className)}>
+      <div className="min-w-[720px]">
         <div
-          key={row.key}
-          data-row={row.key}
-          className={clsx(
-            "grid items-center gap-4 border-b border-line py-[13px]",
-            clickable && "cursor-pointer hover:bg-panel",
-          )}
+          className="grid items-center gap-4 border-b border-line-strong py-[13px] font-mono text-[11px] tracking-[0.12em] text-muted uppercase"
           style={{ gridTemplateColumns: template }}
-          role={clickable ? "button" : undefined}
-          tabIndex={clickable ? 0 : undefined}
-          onClick={clickable ? () => onRowClick?.(row.key) : undefined}
-          onKeyDown={
-            clickable
-              ? (e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    onRowClick?.(row.key);
-                  }
-                }
-              : undefined
-          }
         >
-          {columns.map((column, i) => (
-            <div key={column.key} className="min-w-0">
-              {row.cells[i]}
-            </div>
+          {columns.map((c) => (
+            <span key={c.key}>{c.label}</span>
           ))}
         </div>
-      ))}
+        {rows.map((row) => (
+          <div
+            key={row.key}
+            data-row={row.key}
+            className={clsx(
+              "grid items-center gap-4 border-b border-line py-[13px]",
+              clickable && "cursor-pointer hover:bg-panel",
+            )}
+            style={{ gridTemplateColumns: template }}
+            role={clickable ? "button" : undefined}
+            tabIndex={clickable ? 0 : undefined}
+            onClick={clickable ? () => onRowClick?.(row.key) : undefined}
+            onKeyDown={
+              clickable
+                ? (e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onRowClick?.(row.key);
+                    }
+                  }
+                : undefined
+            }
+          >
+            {columns.map((column, i) => (
+              <div key={column.key} className="min-w-0">
+                {row.cells[i]}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

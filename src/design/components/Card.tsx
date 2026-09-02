@@ -17,7 +17,10 @@ const tones: Record<CardTone, string> = {
 
 export function Card({ tone = "default", className, children, ...props }: CardProps) {
   return (
-    <div className={clsx("flex flex-col gap-3 border px-[22px] py-[20px]", tones[tone], className)} {...props}>
+    <div
+      className={clsx("flex flex-col gap-3 border px-4 py-4 md:px-[22px] md:py-[20px]", tones[tone], className)}
+      {...props}
+    >
       {children}
     </div>
   );

@@ -180,6 +180,16 @@ describe("Table", () => {
     expect(container.querySelector('[data-row="a"]')).toHaveStyle({ gridTemplateColumns: "1fr 2fr" });
   });
 
+  it("scrolls sideways inside its own box rather than the page", () => {
+    const { container } = render(<Table columns={columns} rows={rows} template="1fr 2fr" className="mt-1" />);
+    const box = container.firstElementChild as HTMLElement;
+    expect(box).toHaveClass("overflow-x-auto");
+    // min-w-0 is what stops the wide grid from widening the flex or grid item
+    // the table sits in, which would put the scrollbar on the page instead.
+    expect(box).toHaveClass("min-w-0");
+    expect(box).toHaveClass("mt-1");
+  });
+
   it("calls onRowClick with the row key", () => {
     const onRowClick = vi.fn();
     render(<Table columns={columns} rows={rows} template="1fr 2fr" onRowClick={onRowClick} />);
@@ -319,5 +329,17 @@ describe("Nav", () => {
     expect(devices).toHaveAttribute("aria-current", "page");
     expect(devices).toHaveClass("border-ember");
     expect(screen.getByRole("link", { name: "Overview" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("is a horizontal scroller whose items never wrap", () => {
+    render(
+      <MemoryRouter>
+        <Nav items={items} current="/devices" className="w-full" />
+      </MemoryRouter>,
+    );
+    const nav = screen.getByRole("navigation");
+    expect(nav).toHaveClass("overflow-x-auto");
+    expect(nav).toHaveClass("w-full");
+    expect(screen.getByRole("link", { name: "Devices" })).toHaveClass("whitespace-nowrap");
   });
 });

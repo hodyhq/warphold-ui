@@ -75,7 +75,7 @@ export function Templates() {
   const current = typeof selected === "number" ? templates.find((t) => t.id === selected) : undefined;
 
   return (
-    <div className="grid min-h-0 grow grid-cols-[0.8fr_2fr] gap-8">
+    <div className="grid min-h-0 grow grid-cols-1 gap-8 md:grid-cols-[0.8fr_2fr]">
       <div className="flex flex-col items-start">
         <Eyebrow>Policy templates</Eyebrow>
         <div className="mt-[14px] flex w-full flex-col">
@@ -237,7 +237,7 @@ function Editor({
 
   return (
     <form onSubmit={save} className="flex min-h-0 flex-col gap-[18px] overflow-auto">
-      <div className="flex items-end justify-between gap-4">
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <Field label="Template name" className="grow">
           <Input value={name} autoComplete="off" placeholder="Home default" onChange={(e) => setName(e.target.value)} />
         </Field>
@@ -249,7 +249,7 @@ function Editor({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-[18px]">
+      <div className="grid grid-cols-1 gap-[18px] md:grid-cols-2">
         <Field label="Sources (one path per line)">
           <textarea
             rows={4}
@@ -277,7 +277,7 @@ function Editor({
             </Field>
           )}
         </div>
-        <Field label="Exclude (one glob per line)" className="col-span-2">
+        <Field label="Exclude (one glob per line)" className="col-span-full">
           <textarea
             rows={4}
             value={form.exclude}
@@ -287,7 +287,7 @@ function Editor({
             className={clsx(inputClass, "font-mono text-[12px]")}
           />
         </Field>
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <Field label="Keep latest">
             <Input
               inputMode="numeric"

@@ -16,7 +16,14 @@ export interface NavProps {
 
 export function Nav({ items, current, className }: NavProps) {
   return (
-    <nav className={clsx("flex gap-[22px]", className)}>
+    <nav
+      className={clsx(
+        // Below md the shell hands the nav its own row: it scrolls sideways
+        // rather than wrapping or running off the side of the screen.
+        "flex snap-x gap-[22px] overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        className,
+      )}
+    >
       {items.map((item) => {
         const on = item.to === current;
         return (
@@ -25,7 +32,7 @@ export function Nav({ items, current, className }: NavProps) {
             to={item.to}
             aria-current={on ? "page" : undefined}
             className={clsx(
-              "border-b-2 pb-1 text-[12px] font-medium tracking-[0.04em] uppercase",
+              "shrink-0 snap-start border-b-2 pb-1 text-[12px] font-medium tracking-[0.04em] whitespace-nowrap uppercase",
               on ? "border-ember text-ink" : "border-transparent text-muted hover:text-ink",
             )}
           >
