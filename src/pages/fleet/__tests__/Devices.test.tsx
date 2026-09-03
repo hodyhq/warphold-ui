@@ -59,6 +59,7 @@ const OVERVIEW: Overview = {
   dedup_ratio: null,
   last24h: { completed: 4, failed: 1, buckets: [] },
   latest_failure: null,
+  offsite: { targets_with_mirror: 0, stale_devices: 0 },
   devices: [
     {
       id: "ag_fw13",

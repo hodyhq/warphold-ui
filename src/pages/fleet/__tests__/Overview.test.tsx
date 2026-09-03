@@ -35,6 +35,7 @@ const DATA: OverviewData = {
   stored_bytes: 0,
   dedup_ratio: null,
   last24h: { completed: 41, failed: 1, buckets: buckets() },
+  offsite: { targets_with_mirror: 0, stale_devices: 0 },
   latest_failure: {
     agent_id: "ag_nuc",
     name: "media-nuc",
@@ -170,5 +171,33 @@ describe("Overview", () => {
 
     await waitFor(() => expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument());
     expect(overview).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("the offsite KPI", () => {
+  it("stays hidden on a fleet with no mirror", async () => {
+    overview.mockResolvedValue(DATA);
+    renderOverview();
+    await screen.findByTestId("kpi-protected");
+    expect(screen.queryByTestId("kpi-offsite")).not.toBeInTheDocument();
+  });
+
+  it("counts the devices that are behind, in a warning tone", async () => {
+    overview.mockResolvedValue({ ...DATA, offsite: { targets_with_mirror: 1, stale_devices: 3 } });
+    renderOverview();
+
+    const tile = await screen.findByTestId("kpi-offsite");
+    expect(tile).toHaveTextContent("Offsite");
+    expect(tile).toHaveTextContent("3");
+    expect(tile.querySelector(".text-warn")).not.toBeNull();
+  });
+
+  it("reads good once nothing is behind", async () => {
+    overview.mockResolvedValue({ ...DATA, offsite: { targets_with_mirror: 2, stale_devices: 0 } });
+    renderOverview();
+
+    const tile = await screen.findByTestId("kpi-offsite");
+    expect(tile).toHaveTextContent("0");
+    expect(tile.querySelector(".text-warn")).toBeNull();
   });
 });

@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom";
-import { Device } from "../Device";
+import { Device, offsiteLine } from "../Device";
 import type { AgentDetail, Group, Report, Template } from "../../../api/types";
 
 const agent = vi.fn();
@@ -61,6 +61,7 @@ const DETAIL: AgentDetail = {
   last_seen_at: hoursAgo(1),
   revoked_at: null,
   health: "red",
+  mirror: null,
   reports: [
     report({
       id: 3,
@@ -200,5 +201,49 @@ describe("Device", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: /try again/i }));
     expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent("media-nuc");
+  });
+});
+
+describe("the device's offsite line", () => {
+  const NOW = Date.parse("2026-09-02T12:00:00Z");
+
+  it("says nothing when the device's target keeps no mirror", () => {
+    expect(offsiteLine(null, NOW)).toBeNull();
+  });
+
+  it("calls a device that has never reached the mirror not mirrored", () => {
+    expect(offsiteLine({ mirrored_at: null, mirrored_bytes: 0, stale: true }, NOW)).toEqual({
+      text: "Offsite · not mirrored",
+      tone: "bad",
+    });
+  });
+
+  it("flips to stale exactly on the server's flag", () => {
+    const at = "2026-09-02T10:00:00Z";
+    expect(offsiteLine({ mirrored_at: at, mirrored_bytes: 10, stale: false }, NOW)).toEqual({
+      text: "Offsite · mirrored 2 h ago",
+      tone: "good",
+    });
+    expect(offsiteLine({ mirrored_at: at, mirrored_bytes: 10, stale: true }, NOW)).toEqual({
+      text: "Offsite · stale, last 2 h ago",
+      tone: "warn",
+    });
+  });
+
+  it("shows the line in the Stored card", async () => {
+    agent.mockResolvedValue({
+      ...DETAIL,
+      mirror: { mirrored_at: new Date(Date.now() - 7_200_000).toISOString(), mirrored_bytes: 4096, stale: false },
+    });
+    renderDevice();
+
+    expect(await screen.findByTestId("device-offsite")).toHaveTextContent("Offsite · mirrored 2 h ago");
+  });
+
+  it("leaves the Stored card alone when the target keeps no mirror", async () => {
+    renderDevice();
+
+    expect(await screen.findByTestId("kpi-stored")).toBeInTheDocument();
+    expect(screen.queryByTestId("device-offsite")).not.toBeInTheDocument();
   });
 });
