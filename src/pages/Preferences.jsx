@@ -2,7 +2,7 @@ import { use, useState } from "react";
 import clsx from "clsx";
 import { NotificationEditor } from "../components/notifications/NotificationEditor";
 import { UIPreferencesContext } from "../contexts/UIPreferencesContext";
-import { Eyebrow, Select } from "../design/components";
+import { Card, Eyebrow, Select } from "../design/components";
 import { Col, Row } from "../components/Layout";
 
 const TABS = [
@@ -104,6 +104,33 @@ export function Preferences() {
           <NotificationEditor />
         </div>
       )}
+
+      <FleetCard />
     </div>
+  );
+}
+
+/**
+ * Where the Fleet install docs live. Swap to https://warphold.com/fleet.html
+ * once M6 ships that site; get.warphold.com serves only the two script
+ * redirects and has no page to link to (spec D8, D11).
+ */
+const FLEET_DOCS = "https://github.com/hodyhq/warphold#fleet";
+
+/**
+ * This app never turns itself into a Fleet server - the installer does, on a
+ * machine that stays on - so all it offers is the way there (spec D11).
+ */
+function FleetCard() {
+  return (
+    <Card data-testid="fleet-docs" className="max-w-[70ch]">
+      <span className="font-display text-[18px] font-semibold">Backing up more than this machine</span>
+      <div className="text-muted">
+        A Fleet server enrolls other computers, pushes them policies and keeps their recovery keys.
+      </div>
+      <a href={FLEET_DOCS} target="_blank" rel="noreferrer" className="text-ember self-start hover:underline">
+        How to install Fleet
+      </a>
+    </Card>
   );
 }
