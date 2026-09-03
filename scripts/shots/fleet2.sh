@@ -23,8 +23,14 @@ mount --bind "$ROOT/home" /home
 mount --bind "$ROOT/mnt" /srv
 
 if [ -f "$ROOT/fleet2.pid" ]; then
-  kill "$(cat "$ROOT/fleet2.pid")" 2>/dev/null || true
-  sleep 0.5
+  OLD_PID=$(cat "$ROOT/fleet2.pid")
+  kill "$OLD_PID" 2>/dev/null || true
+  # Poll for the old process to actually exit rather than guessing a fixed
+  # delay; bail out after 5s so a stuck process can't hang the run forever.
+  for _ in $(seq 1 50); do
+    kill -0 "$OLD_PID" 2>/dev/null || break
+    sleep 0.1
+  done
 fi
 rm -rf "$ROOT/fleet2"
 mkdir -p "$ROOT/fleet2/fleet"

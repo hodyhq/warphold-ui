@@ -14,9 +14,31 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 OUT=docs/screenshots
-SCRATCH=${WARPHOLD_SHOTS_DIR:-/tmp/warphold-demo}
+# A fixed, predictable scratch path under shared /tmp lets another user on
+# the box pre-create or symlink it out from under this run. Default to a
+# private mktemp dir instead; WARPHOLD_SHOTS_SCRATCH still lets CI or a
+# --keep rerun pin a stable location when that's wanted.
+if [ -n "${WARPHOLD_SHOTS_SCRATCH:-}" ]; then
+  SCRATCH=$WARPHOLD_SHOTS_SCRATCH
+  mkdir -p "$SCRATCH"
+else
+  SCRATCH=$(mktemp -d "${TMPDIR:-/tmp}/warphold-demo.XXXXXX")
+fi
 BIN=${WARPHOLD_BIN:-$SCRATCH/warphold}
 SRC=${WARPHOLD_SRC:-../warphold}
+
+# Registered up here, not just before the servers start, so a mktemp scratch
+# dir doesn't leak when --plan-only exits early.
+PIDS=()
+cleanup() {
+  [ "${KEEP:-0}" = 1 ] && { echo "servers left running; state in $SCRATCH"; return; }
+  for p in ${PIDS+"${PIDS[@]}"}; do kill "$p" 2>/dev/null || true; done
+  if [ -f "$SCRATCH/pids" ]; then
+    while read -r p; do kill "$p" 2>/dev/null || true; done <"$SCRATCH/pids"
+  fi
+  rm -rf "$SCRATCH"
+}
+trap cleanup EXIT
 
 FLEET_UI=${FLEET_UI_PORT:-5411}
 FLEET2_UI=${FLEET2_UI_PORT:-5412}
@@ -165,16 +187,6 @@ fi
 # committed bundle the Go module embeds, and a screenshot run must not touch it.
 echo "building the UI"
 npx vite build --outDir "$SCRATCH/ui" --emptyOutDir >/dev/null
-
-PIDS=()
-cleanup() {
-  [ "$KEEP" = 1 ] && { echo "servers left running; state in $SCRATCH"; return; }
-  for p in ${PIDS+"${PIDS[@]}"}; do kill "$p" 2>/dev/null || true; done
-  if [ -f "$SCRATCH/pids" ]; then
-    while read -r p; do kill "$p" 2>/dev/null || true; done <"$SCRATCH/pids"
-  fi
-}
-trap cleanup EXIT
 
 # ------------------------------------------------------------------ seed
 rm -rf "$SCRATCH/fleet" "$SCRATCH/fleet2" "$SCRATCH/solo" "$SCRATCH/mnt" \

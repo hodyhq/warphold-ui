@@ -46,6 +46,10 @@ const TYPES = {
 };
 
 function proxy(req, res) {
+  // A client abort (req/res) or a broken upstream body (up) all land here as
+  // 'error' events; none of them should take the process down uncaught.
+  req.on("error", () => out.destroy());
+  res.on("error", () => out.destroy());
   const out = request(
     {
       host: api.hostname,
@@ -55,13 +59,18 @@ function proxy(req, res) {
       headers: { ...req.headers, host: api.host },
     },
     (up) => {
+      up.on("error", () => res.destroy());
       res.writeHead(up.statusCode ?? 502, up.headers);
       up.pipe(res);
     },
   );
   out.on("error", (err) => {
-    res.writeHead(502, { "content-type": "text/plain" });
-    res.end(`upstream: ${err.message}`);
+    if (!res.headersSent) {
+      res.writeHead(502, { "content-type": "text/plain" });
+      res.end(`upstream: ${err.message}`);
+    } else {
+      res.destroy();
+    }
   });
   req.pipe(out);
 }

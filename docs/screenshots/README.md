@@ -19,7 +19,7 @@ Puppeteer. Useful environment variables:
 | -------------------- | -------------------------------------------- | ---------------------------------------------- |
 | `WARPHOLD_SRC`       | `../warphold`                                | the server repo to build from                  |
 | `WARPHOLD_BIN`       | `warphold` inside the scratch directory      | a prebuilt server binary to use instead        |
-| `WARPHOLD_SHOTS_DIR` | `warphold-demo` in the system temp directory | scratch state; wiped at the start of every run |
+| `WARPHOLD_SHOTS_SCRATCH` | a private `mktemp -d` under the system temp directory | scratch state; removed when the run exits (unless `--keep`) |
 
 ## PLAN.json is the contract
 

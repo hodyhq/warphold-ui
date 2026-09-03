@@ -146,14 +146,21 @@ async function main() {
           if (screen.auth) {
             await cdp.send("Page.navigate", { url: new URL("/", screen.url).href }, sessionId);
             await sleep(400);
-            await cdp.send(
+            const signIn = await cdp.send(
               "Runtime.evaluate",
               {
                 expression: `fetch('/api/v1/fleet/session',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(${JSON.stringify(plan.auth[screen.auth])})}).then(r=>r.status)`,
                 awaitPromise: true,
+                returnByValue: true,
               },
               sessionId,
             );
+            const status = signIn.result?.value;
+            if (signIn.exceptionDetails || typeof status !== "number" || status < 200 || status >= 300) {
+              throw new Error(
+                `${screen.name}: sign-in fetch failed: ${signIn.exceptionDetails?.exception?.description ?? `status ${status}`}`,
+              );
+            }
           }
           await cdp.send("Page.navigate", { url: screen.url }, sessionId);
           await sleep(screen.settleMs ?? 1200);
