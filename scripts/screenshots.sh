@@ -14,7 +14,6 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 OUT=docs/screenshots
-PLAN=$OUT/PLAN.json
 SCRATCH=${WARPHOLD_SHOTS_DIR:-/tmp/warphold-demo}
 BIN=${WARPHOLD_BIN:-$SCRATCH/warphold}
 SRC=${WARPHOLD_SRC:-../warphold}
@@ -30,16 +29,27 @@ EMAIL=admin@example.com
 PASSWORD=testpassword1
 PASSPHRASE=testpassphrase
 
-PLAN_ONLY=0 KEEP=0 ONLY=""
+PLAN_ONLY=0 KEEP=0 ONLY="" PLAN_DIR=""
 while [ $# -gt 0 ]; do
   case $1 in
   --plan-only) PLAN_ONLY=1 ;;
   --keep) KEEP=1 ;;
   --only) ONLY=$2; shift ;;
+  --out) PLAN_DIR=$2; shift ;;
   *) echo "unknown flag: $1" >&2; exit 2 ;;
   esac
   shift
 done
+
+# --plan-only is a dry run, so it writes into the scratch directory (or --out)
+# and leaves the committed plan alone; only a full capture, whose ids are real,
+# is allowed to rewrite it.
+if [ "$PLAN_ONLY" = 1 ]; then
+  PLAN=${PLAN_DIR:-$SCRATCH}/PLAN.json
+else
+  PLAN=${PLAN_DIR:-$OUT}/PLAN.json
+fi
+mkdir -p "$(dirname "$PLAN")"
 
 # Placeholders keep --plan-only honest: it writes a complete, readable plan
 # with nothing running, and the real run overwrites these with seeded ids.
@@ -47,15 +57,18 @@ DEVICE_ID=ag_example01
 DEVICE_FAILING=ag_example02
 SNAPSHOT_OID=kexampleobjectid
 SOLO_SOURCE=/home/user/Documents
-DEMO_TARGET_PATH=$SCRATCH/hosted
+DEMO_TARGET_PATH=/srv/backups/hosted
 SETUP_TOKEN=demo-setup-token
 
 write_plan() {
-  local fleet=http://127.0.0.1:$FLEET_UI fleet2=http://127.0.0.1:$FLEET2_UI
-  # 127.0.0.2 rather than 127.0.0.1 on purpose: the UI serves the agent app on
-  # loopback and the single-machine app anywhere else (src/mode.ts), so one
-  # server answers as both, on two addresses.
-  local solo=http://127.0.0.2:$SOLO_UI agent=http://127.0.0.1:$SOLO_UI
+  # Generic hostnames, not loopback literals: the enrollment command on the
+  # last activation step is built from the origin the browser is on, so a
+  # 127.0.0.1 there would be baked into a README image. capture.mjs maps both
+  # names onto loopback with Chrome's own resolver rules; for the MCP driver,
+  # put them in /etc/hosts. The agent origin has to stay a loopback *name*,
+  # because that is how the UI tells the agent app from the single-machine one.
+  local fleet=http://fleet.example.com:$FLEET_UI fleet2=http://fleet.example.com:$FLEET2_UI
+  local solo=http://backup.example.com:$SOLO_UI agent=http://localhost:$SOLO_UI
   local q="userName=user&host=laptop-1&path=$SOLO_SOURCE"
   # The wizard is client-side state, not routes, so steps 2-4 are step 1 plus
   # the clicks that get there. Written once and reused, so the three plan
@@ -164,7 +177,7 @@ cleanup() {
 trap cleanup EXIT
 
 # ------------------------------------------------------------------ seed
-rm -rf "$SCRATCH/fleet" "$SCRATCH/fleet2" "$SCRATCH/solo" "$SCRATCH/hosted" "$SCRATCH/offsite" \
+rm -rf "$SCRATCH/fleet" "$SCRATCH/fleet2" "$SCRATCH/solo" "$SCRATCH/mnt" \
   "$SCRATCH/home" "$SCRATCH/pids" "$SCRATCH/fleet2.pid" "$SCRATCH/vars.env"
 FLEET_API_PORT=$FLEET_API FLEET2_API_PORT=$FLEET2_API SOLO_API_PORT=$SOLO_API \
   bash scripts/shots/seed.sh "$SCRATCH" "$BIN"
@@ -178,7 +191,8 @@ serve() { # serve <ui port> <api port> <hosts> [--no-fleet]
 }
 serve "$FLEET_UI" "$FLEET_API" 127.0.0.1
 serve "$FLEET2_UI" "$FLEET2_API" 127.0.0.1
-serve "$SOLO_UI" "$SOLO_API" 127.0.0.1,127.0.0.2 --no-fleet
+serve "$SOLO_UI" "$SOLO_API" 127.0.0.1 --no-fleet \
+  --local-info '{"name":"laptop-1","group":"Laptops"}'
 for p in $FLEET_UI $FLEET2_UI $SOLO_UI; do
   i=0
   until curl -fsS -o /dev/null "http://127.0.0.1:$p/index.html"; do
@@ -214,11 +228,23 @@ for one in $(node -e "
 done
 
 # ------------------------------------------------------------------ optimize
-if command -v oxipng >/dev/null; then
+# Lossless and metadata-stripping: the images are UI, not photographs, and
+# --strip safe is also the second line of defence on the "nothing identifying
+# in the file" rule. mise fetches oxipng when the system has none.
+before=$(du -sk "$OUT" | cut -f1)
+# `oxipng --version`, not `command -v oxipng`: mise leaves a shim on PATH after
+# `mise exec` that fails until a version is pinned, so "is it on PATH" is not
+# the same question as "does it run".
+if oxipng --version >/dev/null 2>&1; then
   oxipng -q -o 4 --strip safe "$OUT"/*.png
+elif command -v mise >/dev/null; then
+  mise exec oxipng@latest -- oxipng -q -o 4 --strip safe "$OUT"/*.png
 elif command -v pngquant >/dev/null; then
-  pngquant --force --skip-if-larger --strip --ext .png "$OUT"/*.png || true
+  pngquant --force --skip-if-larger --strip --ext .png "$OUT"/*.png
+else
+  echo "no oxipng or pngquant; PNGs left as captured"
 fi
+echo "optimize: ${before} kB -> $(du -sk "$OUT" | cut -f1) kB"
 
 node scripts/shots/index.mjs --plan "$PLAN" --out "$OUT"
 echo "done: $OUT"

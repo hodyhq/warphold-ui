@@ -7,6 +7,14 @@
 # seed to be the only data present - so this refuses to run against a state
 # directory that already has something in it.
 #
+# Every path that reaches a capture has to read like a real installation, so
+# the whole seed runs inside a private mount namespace with the demo tree bound
+# onto /home and /srv: the repository lives at /srv/backups/repo, the targets at
+# /srv/backups/{hosted,offsite}, the sources under /home/user. Nothing is
+# mounted for any other process and nothing needs root - but it does need user
+# namespaces, and there is no honest fallback: without them every
+# single-machine screen would ship the scratch directory as on-screen text.
+#
 # Leaves $ROOT/vars.env behind with the ids the plan needs.
 set -euo pipefail
 
@@ -30,15 +38,40 @@ done
 
 SETUP_TOKEN=${SETUP_TOKEN:-demo-setup-token}
 
-mkdir -p "$ROOT"/{fleet,solo,hosted} "$ROOT/home/user/Documents" "$ROOT/home/user/Pictures"
+if [ "${WARPHOLD_SHOTS_NS:-}" != 1 ]; then
+  case $ROOT in
+  /home/* | /srv/*)
+    echo "seed: the scratch root must not be under /home or /srv - those get bound over" >&2
+    exit 1
+    ;;
+  esac
+  for d in /home /srv; do
+    [ -d "$d" ] || { echo "seed: $d must exist for the demo tree to be bound onto it" >&2; exit 1; }
+  done
+  if ! unshare -r -m true 2>/dev/null; then
+    echo "seed: this needs unprivileged user namespaces (unshare -r -m), which are off here." >&2
+    echo "seed: without them the captures would show the scratch path on screen. Refusing." >&2
+    exit 1
+  fi
+  mkdir -p "$ROOT/home" "$ROOT/mnt"
+  exec env WARPHOLD_SHOTS_NS=1 unshare -r -m bash "$0" "$@"
+fi
+
+mount --bind "$ROOT/home" /home
+mount --bind "$ROOT/mnt" /srv
+
+# The single-machine Repository screen prints the config file's own path, so
+# the solo server keeps its config where the installed app would.
+SOLO_CFG=/home/user/.config/warphold
+mkdir -p "$ROOT"/{fleet,solo} /home/user/Documents /home/user/Pictures /srv/backups "$SOLO_CFG"
 : >"$ROOT/pids"
 
 # Demo tree for the single-machine screens. Generic names, plain text.
 for n in notes budget travel-plan reading-list; do
-  printf 'demo document: %s\n%s\n' "$n" "$(head -c 400 /dev/zero | tr '\0' 'x')" >"$ROOT/home/user/Documents/$n.txt"
+  printf 'demo document: %s\n%s\n' "$n" "$(head -c 400 /dev/zero | tr '\0' 'x')" >"/home/user/Documents/$n.txt"
 done
 for n in trip sunset garden; do
-  head -c 20000 /dev/urandom >"$ROOT/home/user/Pictures/$n.jpg"
+  head -c 20000 /dev/urandom >"/home/user/Pictures/$n.jpg"
 done
 
 wh() { "$BIN" --config-file="$1/repository.config" "${@:2}"; }
@@ -76,10 +109,10 @@ adm() { # adm <method> <path> [body]
 id_of() { sed -n 's/.*"id":\([0-9]*\).*/\1/p'; }
 field() { sed -n "s/.*\"$1\":\"\([^\"]*\)\".*/\1/p"; }
 
-T_DISK=$(adm POST /targets "{\"name\":\"Family disk\",\"kind\":\"filesystem\",\"path\":\"$ROOT/hosted\"}" | id_of)
+T_DISK=$(adm POST /targets "{\"name\":\"Family disk\",\"kind\":\"filesystem\",\"path\":\"/srv/backups/hosted\"}" | id_of)
 # Two disks rather than a b2 target: a b2 target is verified against the real
 # B2 API at creation time, and the seed must never need a cloud account.
-adm POST /targets "{\"name\":\"Offsite disk\",\"kind\":\"filesystem\",\"path\":\"$ROOT/offsite\"}" >/dev/null
+adm POST /targets "{\"name\":\"Offsite disk\",\"kind\":\"filesystem\",\"path\":\"/srv/backups/offsite\"}" >/dev/null
 
 TPL_HOME=$(adm POST /templates '{"name":"Home folders","sources":["/home/user"],"policy":{"retention":{"keepDaily":30,"keepWeekly":8}}}' | id_of)
 TPL_MEDIA=$(adm POST /templates '{"name":"Media library","sources":["/srv/media"],"policy":{"retention":{"keepDaily":7,"keepMonthly":12}}}' | id_of)
@@ -130,54 +163,27 @@ bash "$(dirname "$0")/fleet2.sh" "$ROOT" "$BIN" "$FLEET2_API" "$SETUP_TOKEN"
 
 # ------------------------------------------------------------- solo server
 # The overridden host and user are what keep the real machine's name out of
-# every single-machine screen.
-wh "$ROOT/solo" repository create filesystem --path="$ROOT/solo/repo" \
+# every single-machine screen; the bound-in paths keep the scratch directory
+# out of them.
+wh "$SOLO_CFG" repository create filesystem --path=/srv/backups/repo \
   --password=testrepopassword --override-hostname=laptop-1 --override-username=user \
   --no-check-for-updates >/dev/null
 
-# A snapshot records the absolute path it was taken from, and that path is on
-# screen on four of the single-machine shots. The snapshots *and* the server
-# that serves them run inside a private mount namespace with the demo tree
-# bound onto /home, so they read /home/user/Documents rather than a scratch
-# directory - and "snapshot now" in the UI still works, because the server
-# sees the same paths. Nothing is mounted for any other process and nothing
-# needs root. Where user namespaces are off, the scratch path is used as-is:
-# the shots are still generic, just uglier.
-SOLO='set -e
-if [ "$4" = 1 ]; then mount --bind "$1/home" /home; fi
 for i in 1 2 3; do
-  echo "revision $i" >>"$3/Documents/notes.txt"
-  "$2" --config-file="$1/solo/repository.config" snapshot create "$3/Documents" --password=testrepopassword >/dev/null 2>&1
+  echo "revision $i" >>/home/user/Documents/notes.txt
+  wh "$SOLO_CFG" snapshot create /home/user/Documents --password=testrepopassword >/dev/null 2>&1
 done
-"$2" --config-file="$1/solo/repository.config" snapshot create "$3/Pictures" --password=testrepopassword >/dev/null 2>&1
-"$2" --config-file="$1/solo/repository.config" snapshot list "$3/Documents" --password=testrepopassword --json >"$1/solo/snapshots.json"
-exec "$2" --config-file="$1/solo/repository.config" server start --insecure --without-password \
-  --disable-csrf-token-checks --address="http://127.0.0.1:$5" --disable-file-logging --log-level=error \
-  --password=testrepopassword'
+wh "$SOLO_CFG" snapshot create /home/user/Pictures --password=testrepopassword >/dev/null 2>&1
+wh "$SOLO_CFG" snapshot list /home/user/Documents --password=testrepopassword --json >"$ROOT/solo/snapshots.json"
 
-if unshare -r -m true 2>/dev/null; then
-  SOLO_BASE=/home/user
-  setsid unshare -r -m bash -c "$SOLO" _ "$ROOT" "$BIN" "$SOLO_BASE" 1 "$SOLO_API" \
-    </dev/null >"$ROOT/solo/server.log" 2>&1 &
-else
-  SOLO_BASE=$ROOT/home/user
-  setsid bash -c "$SOLO" _ "$ROOT" "$BIN" "$SOLO_BASE" 0 "$SOLO_API" \
-    </dev/null >"$ROOT/solo/server.log" 2>&1 &
-fi
-echo $! >>"$ROOT/pids"
-i=0
-until curl -fsS -o /dev/null "http://127.0.0.1:$SOLO_API/api/v1/repo/status" 2>/dev/null; do
-  i=$((i + 1))
-  [ "$i" -gt 200 ] && { echo "seed: solo server never came up" >&2; cat "$ROOT/solo/server.log" >&2; exit 1; }
-  sleep 0.2
-done
+start "$SOLO_CFG" "$SOLO_API" --password=testrepopassword
 
 OID=$(grep -o '"obj":"[^"]*"' "$ROOT/solo/snapshots.json" | tail -1 | cut -d'"' -f4)
 
 # One snapshot through the server, so the Tasks screen has a real snapshot task
 # on it rather than only the repository-open one.
 curl -fsS -o /dev/null -X POST \
-  "http://127.0.0.1:$SOLO_API/api/v1/sources/upload?userName=user&host=laptop-1&path=$SOLO_BASE/Documents" \
+  "http://127.0.0.1:$SOLO_API/api/v1/sources/upload?userName=user&host=laptop-1&path=/home/user/Documents" \
   -H 'content-type: application/json' -d '{}' || true
 sleep 2
 
@@ -190,8 +196,8 @@ DEVICE_ID=$AG_LAPTOP
 DEVICE_FAILING=$AG_NUC
 DEVICE_NEVER=$AG_DESK
 SNAPSHOT_OID=$OID
-SOLO_SOURCE=$SOLO_BASE/Documents
+SOLO_SOURCE=/home/user/Documents
 SETUP_TOKEN=$SETUP_TOKEN
-DEMO_TARGET_PATH=$ROOT/hosted
+DEMO_TARGET_PATH=/srv/backups/hosted
 VARS
 echo "seed: done ($ROOT/vars.env)"

@@ -11,6 +11,15 @@ BIN=${2:?warphold binary}
 PORT=${3:?api port}
 TOKEN=${4:-demo-setup-token}
 
+# The wizard's last step really creates its target at /srv/backups/hosted, so
+# this server needs the same bound-in demo tree the seed runs under.
+if [ "${WARPHOLD_SHOTS_NS:-}" != 1 ]; then
+  exec env WARPHOLD_SHOTS_NS=1 unshare -r -m bash "$0" "$@"
+fi
+mkdir -p "$ROOT/home" "$ROOT/mnt"
+mount --bind "$ROOT/home" /home
+mount --bind "$ROOT/mnt" /srv
+
 if [ -f "$ROOT/fleet2.pid" ]; then
   kill "$(cat "$ROOT/fleet2.pid")" 2>/dev/null || true
   sleep 0.5

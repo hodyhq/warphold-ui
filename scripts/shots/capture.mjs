@@ -112,6 +112,9 @@ async function main() {
       "--no-first-run",
       "--no-default-browser-check",
       "--hide-scrollbars",
+      // The plan's origins are generic names so no loopback literal is baked
+      // into a screenshot; nothing leaves this machine.
+      "--host-resolver-rules=MAP fleet.example.com 127.0.0.1,MAP backup.example.com 127.0.0.1",
       "--force-color-profile=srgb",
       "--force-device-scale-factor=1",
       "--disable-lcd-text",

@@ -2,10 +2,10 @@
 // the screenshot pipeline shoots the UI in *this* checkout rather than the
 // bundle a released server happens to embed.
 //
-// Two listeners on purpose: the UI picks its mode from the origin it is served
-// on (src/mode.ts), and 127.0.0.1 is the agent UI while any other host is the
-// single-user "solo" one. Binding 127.0.0.1 and 127.0.0.2 gets both out of one
-// server. Loopback only - this is a demo server with no auth in front of it.
+// The UI picks its mode from the origin it is served on (src/mode.ts): a
+// loopback *name* is the agent UI, anything else is the single-machine one. One
+// listener answers as both, because the name is the browser's business, not the
+// socket's. Loopback only - this is a demo server with no auth in front of it.
 import { createServer, request } from "node:http";
 import { createReadStream, statSync } from "node:fs";
 import { extname, join, normalize, resolve } from "node:path";
@@ -26,6 +26,11 @@ const hosts = arg("hosts", "127.0.0.1").split(",");
 // way that engine does - 404 - or the UI detects a Fleet and shows the
 // activation wizard instead (src/mode.ts).
 const noFleet = process.argv.includes("--no-fleet");
+// The agent UI reads its device name from /local/info, which the agent's
+// in-process engine adds (agent/engine/localauth.go) and `server start` does
+// not. Standing in for that one endpoint is what lets the agent screen be shot
+// against an ordinary server; without it the header falls back to the address.
+const localInfo = arg("local-info");
 
 const TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -68,6 +73,10 @@ function sendFile(res, file) {
 
 function handle(req, res) {
   const path = new URL(req.url, "http://x").pathname;
+  if (localInfo && path === "/local/info") {
+    res.writeHead(200, { "content-type": "application/json" });
+    return res.end(localInfo);
+  }
   if (noFleet && path.startsWith("/api/v1/fleet")) {
     res.writeHead(404, { "content-type": "application/json" });
     return res.end('{"error":"not found"}');
