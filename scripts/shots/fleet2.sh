@@ -13,6 +13,8 @@ TOKEN=${4:-demo-setup-token}
 
 # The wizard's last step really creates its target at /srv/backups/hosted, so
 # this server needs the same bound-in demo tree the seed runs under.
+# seed.sh has already checked that /home and /srv exist and that unprivileged
+# user namespaces work; this only ever runs after it.
 if [ "${WARPHOLD_SHOTS_NS:-}" != 1 ]; then
   exec env WARPHOLD_SHOTS_NS=1 unshare -r -m bash "$0" "$@"
 fi

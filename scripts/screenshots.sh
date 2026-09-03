@@ -235,12 +235,17 @@ before=$(du -sk "$OUT" | cut -f1)
 # `oxipng --version`, not `command -v oxipng`: mise leaves a shim on PATH after
 # `mise exec` that fails until a version is pinned, so "is it on PATH" is not
 # the same question as "does it run".
+# Optimising is a nicety, never a reason to lose a finished capture: under
+# `set -e` an unguarded failure here would abort before index.md is written.
 if oxipng --version >/dev/null 2>&1; then
-  oxipng -q -o 4 --strip safe "$OUT"/*.png
+  oxipng -q -o 4 --strip safe "$OUT"/*.png ||
+    echo "optimize: oxipng failed, PNGs left as captured"
 elif command -v mise >/dev/null; then
-  mise exec oxipng@latest -- oxipng -q -o 4 --strip safe "$OUT"/*.png
+  mise exec oxipng@latest -- oxipng -q -o 4 --strip safe "$OUT"/*.png ||
+    echo "optimize: oxipng failed, PNGs left as captured"
 elif command -v pngquant >/dev/null; then
-  pngquant --force --skip-if-larger --strip --ext .png "$OUT"/*.png
+  pngquant --force --skip-if-larger --strip --ext .png "$OUT"/*.png ||
+    echo "optimize: pngquant failed, PNGs left as captured"
 else
   echo "no oxipng or pngquant; PNGs left as captured"
 fi
