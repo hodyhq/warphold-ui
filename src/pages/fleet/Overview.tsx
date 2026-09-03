@@ -115,7 +115,9 @@ export function Overview() {
   const stored = data.dedup_ratio == null ? null : splitBytes(data.stored_bytes);
   // Protected / Stale / Failing, plus Stored and Offsite when there is
   // anything to say. Two per row on a phone once there are more than three.
-  const tiles = 3 + (stored ? 1 : 0) + (offsite.targets_with_mirror > 0 ? 1 : 0);
+  // offsite is optional-chained: a server that predates the field must not
+  // blank the whole dashboard on a property read.
+  const tiles = 3 + (stored ? 1 : 0) + (offsite?.targets_with_mirror ? 1 : 0);
 
   return (
     <div className="grid min-h-0 grow grid-cols-1 gap-10 md:grid-cols-[1.15fr_1fr] md:gap-14">
@@ -146,15 +148,18 @@ export function Overview() {
           {stored && (
             <Tile id="stored" label="Stored" value={stored[0]} unit={stored[1]} sub={`${data.dedup_ratio}× dedup`} />
           )}
-          {offsite.targets_with_mirror > 0 && (
+          {offsite?.targets_with_mirror ? (
+            // Unknown is neutral, never a green "0 behind": the server could
+            // not read the counter and saying nothing is wrong would be the
+            // one lie that matters here.
             <Tile
               id="offsite"
               label="Offsite"
-              value={offsite.stale_devices}
-              tone={offsite.stale_devices > 0 ? "warn" : "good"}
-              sub="behind"
+              value={offsite.unknown ? "—" : offsite.stale_devices}
+              tone={offsite.unknown ? "ink" : offsite.stale_devices > 0 ? "warn" : "good"}
+              sub={offsite.unknown ? "unavailable" : "behind"}
             />
-          )}
+          ) : null}
         </div>
 
         <div>

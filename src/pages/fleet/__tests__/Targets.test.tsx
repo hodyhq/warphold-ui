@@ -167,6 +167,32 @@ describe("offsite state on a target row", () => {
     expect(storageChips({ id: 2, name: "tank", kind: "filesystem", path: "/tank" }, NOW)).toEqual([]);
   });
 
+  it("gives a mirroring filesystem target the same local chip as a hosted one", () => {
+    const chips = storageChips(
+      {
+        id: 2,
+        name: "tank",
+        kind: "filesystem",
+        path: "/tank",
+        mirror_kind: "b2",
+        mirror_lock_verified_at: "2026-09-01T00:00:00Z",
+        mirrored_at: "2026-09-02T10:00:00Z",
+      },
+      NOW,
+    );
+    expect(chips).toEqual([
+      { text: "local ✓", tone: "good" },
+      { text: "offsite ✓ 2 h ago", tone: "good" },
+    ]);
+  });
+
+  it("calls a verified mirror that has never run bad, not stale", () => {
+    // No mirrored_at: there is no offsite copy to have gone old.
+    expect(
+      storageChips(hosted({ mirror_kind: "b2", mirror_lock_verified_at: "2026-09-01T00:00:00Z" }), NOW)[1],
+    ).toEqual({ text: "offsite never run", tone: "bad" });
+  });
+
   it("shows the age of the newest mirror when it is current", () => {
     const chips = storageChips(
       hosted({
@@ -195,7 +221,9 @@ describe("offsite state on a target row", () => {
   });
 
   it("calls an unverified mirror bad, ahead of any staleness", () => {
-    expect(storageChips(hosted({ mirror_kind: "b2", mirror_stale: true }), NOW)[1]).toEqual({
+    expect(
+      storageChips(hosted({ mirror_kind: "b2", mirrored_at: "2026-09-02T10:00:00Z", mirror_stale: true }), NOW)[1],
+    ).toEqual({
       text: "offsite unverified",
       tone: "bad",
     });
@@ -213,6 +241,7 @@ describe("offsite state on a target row", () => {
         mirror_kind: "b2",
         mirror_bucket: "hody-offsite",
         mirror_lock_verified_at: "2026-09-01T00:00:00Z",
+        mirrored_at: "2026-08-30T00:00:00Z",
         mirror_stale: true,
       }),
     ]);

@@ -35,7 +35,7 @@ const DATA: OverviewData = {
   stored_bytes: 0,
   dedup_ratio: null,
   last24h: { completed: 41, failed: 1, buckets: buckets() },
-  offsite: { targets_with_mirror: 0, stale_devices: 0 },
+  offsite: { targets_with_mirror: 0, stale_devices: 0, unknown: false },
   latest_failure: {
     agent_id: "ag_nuc",
     name: "media-nuc",
@@ -183,7 +183,7 @@ describe("the offsite KPI", () => {
   });
 
   it("counts the devices that are behind, in a warning tone", async () => {
-    overview.mockResolvedValue({ ...DATA, offsite: { targets_with_mirror: 1, stale_devices: 3 } });
+    overview.mockResolvedValue({ ...DATA, offsite: { targets_with_mirror: 1, stale_devices: 3, unknown: false } });
     renderOverview();
 
     const tile = await screen.findByTestId("kpi-offsite");
@@ -193,11 +193,23 @@ describe("the offsite KPI", () => {
   });
 
   it("reads good once nothing is behind", async () => {
-    overview.mockResolvedValue({ ...DATA, offsite: { targets_with_mirror: 2, stale_devices: 0 } });
+    overview.mockResolvedValue({ ...DATA, offsite: { targets_with_mirror: 2, stale_devices: 0, unknown: false } });
     renderOverview();
 
     const tile = await screen.findByTestId("kpi-offsite");
     expect(tile).toHaveTextContent("0");
     expect(tile.querySelector(".text-warn")).toBeNull();
+  });
+
+  it("goes neutral, never green, when the server could not read the counter", async () => {
+    overview.mockResolvedValue({ ...DATA, offsite: { targets_with_mirror: 1, stale_devices: 0, unknown: true } });
+    renderOverview();
+
+    const tile = await screen.findByTestId("kpi-offsite");
+    expect(tile).toHaveTextContent("—");
+    expect(tile).toHaveTextContent("unavailable");
+    expect(tile).not.toHaveTextContent("behind");
+    expect(tile.querySelector(".text-warn")).toBeNull();
+    expect(tile.querySelector(".text-good")).toBeNull();
   });
 });

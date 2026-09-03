@@ -34,7 +34,11 @@ export function storageChips(t: Target, now?: number): Chip[] {
     return [{ text: t.object_lock_verified_at ? "cloud ✓ (Object Lock)" : "cloud ✓", tone: "good" }];
   }
   const chips: Chip[] = [];
-  if (t.kind === "hosted") {
+  // "local ✓" is about a copy on this server's own disk, so a filesystem
+  // target that mirrors gets the same treatment as a hosted one. A plain
+  // filesystem target with no mirror keeps its bare row - there is no offsite
+  // story to tell, and a lone "local ✓" only restates the card's own title.
+  if (t.kind === "hosted" || t.mirror_kind) {
     chips.push({ text: "local ✓", tone: "good" });
   }
   if (!t.mirror_kind) {
@@ -42,10 +46,14 @@ export function storageChips(t: Target, now?: number): Chip[] {
   }
   if (!t.mirror_lock_verified_at) {
     chips.push({ text: "offsite unverified", tone: "bad" });
+  } else if (!t.mirrored_at) {
+    // Verified but nothing has ever reached the bucket: "stale" would imply a
+    // copy exists and has gone old. There is no copy.
+    chips.push({ text: "offsite never run", tone: "bad" });
   } else if (t.mirror_stale) {
     chips.push({ text: "offsite stale", tone: "warn" });
   } else {
-    chips.push({ text: `offsite ✓${t.mirrored_at ? ` ${relativeTime(t.mirrored_at, now)}` : ""}`, tone: "good" });
+    chips.push({ text: `offsite ✓ ${relativeTime(t.mirrored_at, now)}`, tone: "good" });
   }
   return chips;
 }

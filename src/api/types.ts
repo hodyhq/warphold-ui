@@ -202,6 +202,8 @@ export interface Overview {
   offsite: {
     targets_with_mirror: number;
     stale_devices: number;
+    /** The server could not read the counter; render neutral, never green. */
+    unknown: boolean;
   };
   devices: OverviewDevice[];
 }
