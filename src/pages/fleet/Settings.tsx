@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Button, Card, Dialog, Eyebrow, Field, Input, Select, Toast } from "../../design/components";
-import { apiError, fleet } from "../../api/fleet";
+import { apiError, fleet, proxyRequirements } from "../../api/fleet";
 import type { Admin, Settings as FleetSettings } from "../../api/types";
 
 /**
@@ -83,6 +83,13 @@ export function Settings() {
           }}
           onError={(message) => setToast({ message, bad: true })}
         />
+        <PublicURLCard
+          settings={settings}
+          onSaved={(s) => {
+            setSettings(s);
+            setToast({ message: "Public URL verified and saved.", bad: false });
+          }}
+        />
         <AdminsCard admins={admins} onChanged={reload} onError={(message) => setToast({ message, bad: true })} />
         <AgentsCard settings={settings} onSaved={setSettings} onError={(message) => setToast({ message, bad: true })} />
         <Card>
@@ -153,6 +160,73 @@ function FleetNameCard({
         </Button>
       </form>
       <div className="text-dim font-mono text-[12px]">Shown in the header and on the weekly digest.</div>
+    </Card>
+  );
+}
+
+/**
+ * The one address every device, browser and proxy uses (spec 6). Saving runs
+ * the server's end-to-end probe - it fetches its own status back through the
+ * URL - so a proxy that swallows the path fails here rather than on the first
+ * device's first snapshot. This is also where a wizard that was told to
+ * continue with an unverified URL gets re-tested.
+ */
+function PublicURLCard({ settings, onSaved }: { settings: FleetSettings; onSaved: (s: FleetSettings) => void }) {
+  const [url, setURL] = useState(settings.public_url);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [requirements, setRequirements] = useState<string[]>([]);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    setRequirements([]);
+    try {
+      onSaved(await fleet.setPublicURL(url.trim()));
+    } catch (err) {
+      setError(apiError(err, "The public URL could not be checked."));
+      setRequirements(proxyRequirements(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card>
+      <span className="font-display text-[18px] font-semibold">Public URL</span>
+      <form onSubmit={save} className="flex flex-col gap-3">
+        <Field label="URL">
+          <Input
+            type="url"
+            value={url}
+            autoComplete="off"
+            placeholder="https://fleet.example.com"
+            onChange={(e) => setURL(e.target.value)}
+          />
+        </Field>
+        <Button type="submit" variant="primary" disabled={busy} className="self-start">
+          {busy ? "Testing…" : "Test and save"}
+        </Button>
+      </form>
+      {error && (
+        <div role="alert" className="flex flex-col gap-[10px]">
+          <p className="text-bad m-0 text-[13px]">{error}</p>
+          {requirements.length > 0 && (
+            <>
+              <p className="text-muted m-0 text-[13px]">The reverse proxy in front of it must:</p>
+              <ul className="text-dim m-0 list-disc pl-5 font-mono text-[11px] leading-[1.8]">
+                {requirements.map((r) => (
+                  <li key={r}>{r}</li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      )}
+      <div className="text-dim font-mono text-[12px]">
+        Enrollment tokens cannot be issued until this is set and reachable.
+      </div>
     </Card>
   );
 }

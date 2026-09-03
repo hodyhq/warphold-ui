@@ -83,25 +83,44 @@ export interface TemplateInput {
   policy: KopiaPolicy;
 }
 
+/** How a hosted target keeps its bytes (spec D5). */
+export type StorageMode = "disk" | "cloud";
+
 /** `targetOut` in admin_targets.go. Credentials are never returned. */
 export interface Target {
   id: number;
   name: string;
-  kind: "b2" | "filesystem";
+  kind: "b2" | "filesystem" | "hosted";
   bucket?: string;
   region?: string;
   path?: string;
+  /** Bare host[:port] of a cloud-direct target that is not Backblaze B2. */
+  endpoint?: string;
   object_lock_verified_at?: string | null;
+
+  /** Hosted targets only; the mirror is only ever offered for storage_mode "disk". */
+  storage_mode?: StorageMode;
+  mirror_kind?: "b2" | "s3";
+  mirror_bucket?: string;
+  mirror_region?: string;
+  mirror_lock_verified_at?: string | null;
 }
 
 export interface TargetInput {
   name: string;
-  kind: "b2" | "filesystem";
+  kind: "b2" | "filesystem" | "hosted";
   bucket?: string;
   region?: string;
   path?: string;
+  endpoint?: string;
   key_id?: string;
   key?: string;
+  storage_mode?: StorageMode;
+  mirror_kind?: "b2" | "s3";
+  mirror_bucket?: string;
+  mirror_region?: string;
+  mirror_key_id?: string;
+  mirror_key?: string;
 }
 
 /** One row of GET /groups/{id}/tokens. The token itself is never re-shown. */
@@ -179,7 +198,7 @@ export interface Overview {
 }
 
 /**
- * The two settings the server exposes (`fleet/api/admin_settings.go`). The
+ * The settings the server exposes (`fleet/api/admin_settings.go`). The
  * settings table holds more - seal_salt among them - which the endpoint
  * deliberately neither reads back nor accepts.
  */
@@ -187,6 +206,11 @@ export interface Settings {
   fleet_name: string;
   /** Agent check-in interval in seconds; the server clamps it to 15..3600. */
   poll_interval: number;
+  /**
+   * The absolute URL devices, browsers and proxies reach this fleet on. Empty
+   * until it is set; enrollment tokens cannot be issued while it is (spec 6).
+   */
+  public_url: string;
 }
 
 /**

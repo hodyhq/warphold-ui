@@ -11,6 +11,7 @@ const setSetting = vi.fn();
 const admins = vi.fn();
 const inviteAdmin = vi.fn();
 const deleteAdmin = vi.fn();
+const setPublicURL = vi.fn();
 
 vi.mock(import("../../../api/fleet"), async (importOriginal) => ({
   ...(await importOriginal()),
@@ -20,6 +21,7 @@ vi.mock(import("../../../api/fleet"), async (importOriginal) => ({
     admins: () => admins(),
     inviteAdmin: (email: string, password: string) => inviteAdmin(email, password),
     deleteAdmin: (id: number) => deleteAdmin(id),
+    setPublicURL: (url: string) => setPublicURL(url),
   } as unknown as typeof import("../../../api/fleet").fleet,
 }));
 
@@ -29,7 +31,12 @@ const ADMINS: Admin[] = [
 ];
 
 beforeEach(() => {
-  settings.mockReset().mockResolvedValue({ fleet_name: "home-fleet", poll_interval: 300 });
+  settings.mockReset().mockResolvedValue({ fleet_name: "home-fleet", poll_interval: 300, public_url: "" });
+  setPublicURL
+    .mockReset()
+    .mockImplementation((url: string) =>
+      Promise.resolve({ fleet_name: "home-fleet", poll_interval: 300, public_url: url }),
+    );
   setSetting
     .mockReset()
     .mockImplementation((key: string, value: unknown) =>
@@ -117,5 +124,31 @@ describe("Settings", () => {
 
     expect(await within(dialog).findByRole("alert")).toHaveTextContent("cannot delete the last admin");
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("re-tests the public URL and prints the proxy checklist when the probe fails", async () => {
+    setPublicURL.mockRejectedValueOnce({
+      response: {
+        status: 400,
+        data: {
+          error: "https://fleet.example.com could not be reached from this server",
+          proxy_requirements: ["forward the Host header unchanged", "do not buffer request bodies"],
+        },
+      },
+    });
+    render(<Settings />);
+
+    const url = await screen.findByLabelText(/^url$/i);
+    await userEvent.type(url, "https://fleet.example.com");
+    await userEvent.click(screen.getByRole("button", { name: /test and save/i }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/could not be reached/i);
+    expect(alert).toHaveTextContent("forward the Host header unchanged");
+    expect(alert).toHaveTextContent("do not buffer request bodies");
+
+    await userEvent.click(screen.getByRole("button", { name: /test and save/i }));
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+    expect(setPublicURL).toHaveBeenLastCalledWith("https://fleet.example.com");
   });
 });

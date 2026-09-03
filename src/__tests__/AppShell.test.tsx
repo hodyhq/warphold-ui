@@ -41,7 +41,7 @@ const EMPTY_OVERVIEW: Overview = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockedSettings.mockResolvedValue({ fleet_name: "home-fleet", poll_interval: 300 });
+  mockedSettings.mockResolvedValue({ fleet_name: "home-fleet", poll_interval: 300, public_url: "" });
   mockedOverview.mockResolvedValue(EMPTY_OVERVIEW);
   vi.mocked(engine.localInfo).mockResolvedValue({ name: "laptop-1", group: "" });
   vi.mocked(engine.sources).mockResolvedValue({
