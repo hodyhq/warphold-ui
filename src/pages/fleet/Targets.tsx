@@ -1,12 +1,61 @@
 import React, { useCallback, useEffect, useState } from "react";
 import clsx from "clsx";
-import { Button, Card, Dialog, Eyebrow, Field, Input, Pill, Toast } from "../../design/components";
+import { Button, Card, Dialog, Eyebrow, Field, Input, Pill, Toast, toneText } from "../../design/components";
 import { apiError, fleet } from "../../api/fleet";
 import type { AgentOut, Group, Target, TargetInput } from "../../api/types";
+import { relativeTime } from "../../lib/format";
 
 /** How a target's headline reads; the kind decides which field names it. */
 function title(t: Target): string {
+  if (t.kind === "hosted") {
+    return t.storage_mode === "cloud" ? `Fleet cloud · ${t.bucket ?? t.name}` : `Fleet disk · ${t.path ?? t.name}`;
+  }
   return t.kind === "b2" ? `Backblaze B2 · ${t.bucket ?? t.name}` : `Filesystem · ${t.path ?? t.name}`;
+}
+
+/** Whether a target's data is immutable where it sits, rather than mirrored. */
+function isCloudDirect(t: Target): boolean {
+  return t.kind === "hosted" && t.storage_mode === "cloud";
+}
+
+type Chip = { text: string; tone: "good" | "warn" | "bad" };
+
+/**
+ * The storage chips a target row carries after its name: where the copy sits
+ * and how the offsite copy is doing.
+ *
+ * A cloud-direct target has no mirror - it *is* the offsite copy - so it says
+ * so once and stops. A disk target with a mirror has three states worth
+ * distinguishing: the bucket's immutability was never confirmed (bad: the job
+ * refuses to upload at all), the copies are behind (warn), or it is current.
+ */
+export function storageChips(t: Target, now?: number): Chip[] {
+  if (isCloudDirect(t)) {
+    return [{ text: t.object_lock_verified_at ? "cloud ✓ (Object Lock)" : "cloud ✓", tone: "good" }];
+  }
+  const chips: Chip[] = [];
+  // "local ✓" is about a copy on this server's own disk, so a filesystem
+  // target that mirrors gets the same treatment as a hosted one. A plain
+  // filesystem target with no mirror keeps its bare row - there is no offsite
+  // story to tell, and a lone "local ✓" only restates the card's own title.
+  if (t.kind === "hosted" || t.mirror_kind) {
+    chips.push({ text: "local ✓", tone: "good" });
+  }
+  if (!t.mirror_kind) {
+    return chips;
+  }
+  if (!t.mirror_lock_verified_at) {
+    chips.push({ text: "offsite unverified", tone: "bad" });
+  } else if (!t.mirrored_at) {
+    // Verified but nothing has ever reached the bucket: "stale" would imply a
+    // copy exists and has gone old. There is no copy.
+    chips.push({ text: "offsite never run", tone: "bad" });
+  } else if (t.mirror_stale) {
+    chips.push({ text: "offsite stale", tone: "warn" });
+  } else {
+    chips.push({ text: `offsite ✓ ${relativeTime(t.mirrored_at, now)}`, tone: "good" });
+  }
+  return chips;
 }
 
 /**
@@ -86,11 +135,12 @@ export function Targets() {
         <div className="grid grid-cols-1 gap-[18px] md:grid-cols-2">
           {targets.map((t) => {
             const count = devices(t.id);
+            const chips = storageChips(t);
             return (
               <Card key={t.id} data-testid={`target-${t.id}`}>
                 <div className="flex items-start justify-between gap-4">
                   <span className="font-display text-[18px] font-semibold break-all">{title(t)}</span>
-                  {t.kind === "b2" ? (
+                  {t.kind === "b2" || isCloudDirect(t) ? (
                     t.object_lock_verified_at ? (
                       <Pill tone="good">Object Lock verified</Pill>
                     ) : (
@@ -100,16 +150,26 @@ export function Targets() {
                     <Pill>Local</Pill>
                   )}
                 </div>
+                {chips.length > 0 && (
+                  // Wraps on a phone rather than pushing the card sideways.
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    {chips.map((c, i) => (
+                      <React.Fragment key={c.text}>
+                        {i > 0 && <span className="text-dim">·</span>}
+                        <span className={toneText[c.tone]}>{c.text}</span>
+                      </React.Fragment>
+                    ))}
+                  </div>
+                )}
                 <div className="text-muted">
-                  {[t.kind === "b2" ? t.region : "on this server", `${count} device${count === 1 ? "" : "s"}`]
+                  {[
+                    t.kind === "b2" ? t.region : isCloudDirect(t) ? "devices write straight to the bucket" : "on this server",
+                    `${count} device${count === 1 ? "" : "s"}`,
+                  ]
                     .filter(Boolean)
                     .join(" · ")}
                 </div>
-                <div className="text-dim font-mono text-[12px]">
-                  {t.kind === "b2"
-                    ? "Admin key sealed · per-device keys write + list + read, never delete"
-                    : "No immutability. Sync to B2 is a later feature."}
-                </div>
+                <div className="text-dim font-mono text-[12px]">{footnote(t)}</div>
               </Card>
             );
           })}
@@ -143,6 +203,17 @@ export function Targets() {
   );
 }
 
+/** The small print under a target card: what its copies are protected by. */
+function footnote(t: Target): string {
+  if (t.kind === "b2" || isCloudDirect(t)) {
+    return "Admin key sealed · per-device keys write + list + read, never delete";
+  }
+  if (t.mirror_kind) {
+    return `Mirrored to ${t.mirror_kind.toUpperCase()} · ${t.mirror_bucket ?? ""}`.trim();
+  }
+  return "No immutability. Sync to B2 is a later feature.";
+}
+
 /** The two kinds, as the Activate wizard also presents them. */
 const KINDS = [
   {
@@ -158,7 +229,13 @@ const KINDS = [
 ];
 
 /** The kind picker, shared by this dialog and the Activate wizard's step 3. */
-export function KindPicker({ kind, onPick }: { kind: Target["kind"]; onPick: (kind: Target["kind"]) => void }) {
+export function KindPicker({
+  kind,
+  onPick,
+}: {
+  kind: TargetInput["kind"];
+  onPick: (kind: TargetInput["kind"]) => void;
+}) {
   return (
     <fieldset className="m-0 grid grid-cols-1 gap-[14px] border-0 p-0 sm:grid-cols-2">
       <legend className="text-muted mb-[6px] font-mono text-[11px] tracking-[0.12em] uppercase">Kind</legend>
@@ -282,7 +359,7 @@ function AddTargetDialog({
   onCreated,
 }: {
   onClose: () => void;
-  onCreated: (verified: boolean, kind: Target["kind"]) => void;
+  onCreated: (verified: boolean, kind: TargetInput["kind"]) => void;
 }) {
   const [value, setValue] = useState<TargetInput>({ name: "", kind: "b2" });
   const [error, setError] = useState("");

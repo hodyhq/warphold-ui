@@ -36,6 +36,7 @@ const EMPTY_OVERVIEW: Overview = {
   dedup_ratio: null,
   last24h: { completed: 0, failed: 0, buckets: [] },
   latest_failure: null,
+  offsite: { targets_with_mirror: 0, stale_devices: 0, unknown: false },
   devices: [],
 };
 
