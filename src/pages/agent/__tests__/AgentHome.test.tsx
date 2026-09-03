@@ -110,6 +110,13 @@ beforeEach(() => {
 });
 
 describe("AgentHome", () => {
+  it("names the device in the header, not the engine's address", async () => {
+    render(<AgentHome />);
+
+    expect(await screen.findByText("agent · laptop-1")).toBeInTheDocument();
+    expect(screen.queryByText(new RegExp(window.location.host))).not.toBeInTheDocument();
+  });
+
   it("says OK with the age of the last good backup, and labels the vault", async () => {
     render(<AgentHome />);
 
@@ -302,6 +309,9 @@ describe("AgentHome", () => {
 
     expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent("ATTENTION");
     expect(screen.getByText("WarpHold")).toBeInTheDocument();
+    // No name to show, so the eyebrow falls back to the browser's hostname -
+    // never the host:port the engine happens to listen on.
+    expect(screen.getByText(`agent · ${window.location.hostname}`)).toBeInTheDocument();
     expect(screen.getByText(/no sources are configured for this machine yet/i)).toBeInTheDocument();
     expect(screen.getByText(/nothing has run yet/i)).toBeInTheDocument();
     expect(snapshots).not.toHaveBeenCalled();
