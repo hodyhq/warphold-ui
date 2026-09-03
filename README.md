@@ -1,31 +1,106 @@
-# Kopia HTML Ui
+# warphold-ui
 
-WarpHold UI — fork of kopia/htmlui; built output committed under `build/` and consumed by [github.com/hodyhq/warphold](https://github.com/hodyhq/warphold) via the Go module.
+The WarpHold web UI: a React app, its built output committed under `build/`, and
+a one-file Go module that embeds it. A fork of
+[kopia/htmlui](https://github.com/kopia/htmlui) (Apache-2.0) — see
+[LICENSE](LICENSE). This repository is the UI only; the server, the Fleet control
+plane and the agent live in
+[hodyhq/warphold](https://github.com/hodyhq/warphold).
 
-This is the repository for the html UI for kopia. It is bundled as part of the [kopia UI releases (e.g. `KopiaUI-Setup-X.Y.Z.exe` or a `kopiaui` package)](https://kopia.io/docs/installation/#two-variants-of-kopia).
+## The Go module
 
-## Reporting issues
+`htmlui.go` is the whole of it: `//go:embed build`, and one exported function.
 
-If you want to report a bug or have an idea for a feature request, please use the [issues list of the main kopia repository](https://github.com/kopia/kopia/issues?q=is%3Aissue+is%3Aopen+gui).
+```go
+package warpholdui
+
+// AssetFile returns the built UI as an http.FileSystem.
+func AssetFile() http.FileSystem
+```
+
+The server depends on `github.com/hodyhq/warphold-ui` and mounts what
+`AssetFile()` returns. Consuming a new UI version is one command in the server
+checkout:
+
+```sh
+go get github.com/hodyhq/warphold-ui@v0.2.0   # then commit go.mod + go.sum
+```
+
+Because the module serves `build/`, that directory is **committed on purpose**
+(as upstream does with `kopia/htmluibuild`) — `go get` fetches source, not a
+build step.
+
+## Releasing a new UI version
+
+```sh
+scripts/release-build.sh          # npm ci && npm run build, then commits build/
+git tag v0.2.1 && git push --tags # the tag IS the module version
+```
+
+Then bump the dependency in the server repo with the `go get` above. The script
+refuses to run with anything already staged, and exits quietly when the build
+output is unchanged. Tags are plain semver `vX.Y.Z`; there is no separate
+release workflow, because a Go module needs nothing beyond the tag.
 
 ## Development
 
-The kopia UI uses [React](https://react.dev/). It connects to a kopia server running locally.
-
-If you want to run a local version of the GUI (e.g. for development), you need to start a kopia server first.
-As the UI version might be ahead of the latest release and might depend on changes in the server, it's recommended
-that you also clone the [kopia server repository](https://github.com/kopia/kopia#readme) and start the server from there (GO required).
-
-You can use this script like this one. Here it's assumed that you cloned the server repo next to the htmlui.
-
-```bash
-#! /bin/bash
-(
-  cd ../kopia
-  # start kopia server with default repo:
-  #go run . server start --insecure --without-password --disable-csrf-token-checks --log-level=debug
-
-  # for development you might want to use another repository for testing only, not your normal one, so you could use, e.g.
-  go run . server start --insecure --without-password --disable-csrf-token-checks --log-level=debug  --config-file=$HOME/.config/kopia/disabled/repository-dev.config
-)
+```sh
+npm ci
+npm run start      # vite dev server on the app, proxying /api to a local server
+npm test           # vitest + coverage
+npm run lint       # eslint
+npm run prettier   # write; prettier:check in CI
 ```
+
+The UI talks to a running WarpHold server. Start one from a sibling checkout of
+[hodyhq/warphold](https://github.com/hodyhq/warphold) — `dev-start-server.sh` is
+a starting point. The UI picks which product it renders (Fleet, single-machine
+app, or agent page) from what the server answers; see `src/mode.ts`.
+
+## Design system
+
+Kinetic, under [`src/design/`](src/design):
+
+- [`tokens.css`](src/design/tokens.css) — the palette and type scale as Tailwind
+  v4 `@theme` tokens: ground `#16181D`, panel `#1D2027`, ink `#F2F3F5`, muted
+  `#9AA0AD`, ember accent `#FF6A1A`, and health `#2FBF83` / `#F5B942` /
+  `#FF5D5D`. Scoped to the `.wh` root class, and imported unlayered on purpose —
+  the file's header comment explains why.
+- [`fonts.css`](src/design/fonts.css) and `fonts/` — Unbounded (display), Space
+  Grotesk (body) and Space Mono (data), self-hosted `woff2` with their OFL
+  licenses alongside. No third-party font request is ever made.
+- [`components/`](src/design/components) — the shared primitives every screen is
+  built from: `Button`, `Card`, `Checkbox`, `Dialog`, `Eyebrow`, `Field`,
+  `HealthBar`, `Input`, `Kpi`, `Nav`, `Pill`, `Select`, `Spinner`, `Strip`,
+  `Table`, `Toast`, plus `tone.ts` for the health colour mapping. Import from
+  `src/design/components`, and add to it rather than restyling in a page.
+
+## Screenshots
+
+`scripts/screenshots.sh` builds this checkout, stands up throwaway servers,
+seeds them with invented demo data, and captures every screen at 1440 px and
+412 px into `docs/screenshots/`. No browser-automation dependency is added — it
+drives headless Chrome over CDP with the WebSocket already in Node.
+
+```sh
+scripts/screenshots.sh                     # everything
+scripts/screenshots.sh --only fleet-overview
+```
+
+Every screen with its caption: [`docs/screenshots/index.md`](docs/screenshots/index.md).
+How the pipeline works, and what is in the demo data:
+[`docs/screenshots/README.md`](docs/screenshots/README.md). Regenerate rather
+than edit, and never hand-place a capture: `PLAN.json` is the contract both
+drivers follow.
+
+![The fleet dashboard](docs/screenshots/fleet-overview@1440.png)
+
+![The single-machine app](docs/screenshots/solo-snapshots@1440.png)
+
+## Reporting issues
+
+Bugs and feature requests for WarpHold — this UI included — go to
+[hodyhq/warphold](https://github.com/hodyhq/warphold/issues). Security issues go
+privately through
+[GitHub Security Advisories](https://github.com/hodyhq/warphold/security/advisories/new),
+not the issue tracker.
