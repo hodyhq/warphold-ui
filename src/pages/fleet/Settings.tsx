@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Button, Card, Dialog, Eyebrow, Field, Input, Select, Toast } from "../../design/components";
+import { Button, Card, Checkbox, Dialog, Eyebrow, Field, Input, Select, Toast } from "../../design/components";
 import { apiError, fleet } from "../../api/fleet";
 import type { Admin, Settings as FleetSettings } from "../../api/types";
 
@@ -19,6 +19,79 @@ function pollLabel(seconds: number): string {
   const known = POLL_CHOICES.find((c) => c.seconds === seconds);
   return known ? known.label : `${seconds} seconds`;
 }
+
+/** Presets offered for the background-job intervals, which run far less often
+ * than the agent poll. Each field filters this list down to its own minimum. */
+const INTERVAL_CHOICES = [
+  { seconds: 300, label: "5 minutes" },
+  { seconds: 900, label: "15 minutes" },
+  { seconds: 1_800, label: "30 minutes" },
+  { seconds: 3_600, label: "1 hour" },
+  { seconds: 6 * 3_600, label: "6 hours" },
+  { seconds: 12 * 3_600, label: "12 hours" },
+  { seconds: 86_400, label: "1 day" },
+  { seconds: 3 * 86_400, label: "3 days" },
+  { seconds: 7 * 86_400, label: "7 days" },
+  { seconds: 14 * 86_400, label: "14 days" },
+  { seconds: 30 * 86_400, label: "30 days" },
+];
+
+function intervalLabel(seconds: number): string {
+  const known = INTERVAL_CHOICES.find((c) => c.seconds === seconds);
+  if (known) {
+    return known.label;
+  }
+  if (seconds % 86_400 === 0) {
+    return `${seconds / 86_400} days`;
+  }
+  if (seconds % 3_600 === 0) {
+    return `${seconds / 3_600} hours`;
+  }
+  if (seconds % 60 === 0) {
+    return `${seconds / 60} minutes`;
+  }
+  return `${seconds} seconds`;
+}
+
+interface IntervalSpec {
+  key: keyof FleetSettings;
+  label: string;
+  help: string;
+  min: number;
+  def: number;
+}
+
+/**
+ * The scheduler's job kinds and the setting each reads (`fleet/jobs/scheduler.go`
+ * `intervals`); stats and digest are Task 31's fleet-wide jobs, built alongside
+ * this screen. Defaults/minimums are copied from that map, not guessed.
+ */
+const JOB_INTERVALS: IntervalSpec[] = [
+  { key: "mirror_interval", label: "Mirror", help: "Disk target to the offsite copy.", min: 300, def: 3_600 },
+  { key: "verify_interval", label: "Verify", help: "Fleet-wide integrity check.", min: 3_600, def: 7 * 86_400 },
+  {
+    key: "test_restore_interval",
+    label: "Test restore",
+    help: "Proves a backup actually restores.",
+    min: 3_600,
+    def: 30 * 86_400,
+  },
+  {
+    key: "maintenance_interval",
+    label: "Maintenance",
+    help: "Repository compaction and garbage collection.",
+    min: 3_600,
+    def: 86_400,
+  },
+  { key: "stats_interval", label: "Stats", help: "Repository size and dedup ratio.", min: 3_600, def: 86_400 },
+  {
+    key: "digest_interval",
+    label: "Digest email",
+    help: "The weekly summary, to every admin.",
+    min: 3_600,
+    def: 7 * 86_400,
+  },
+];
 
 /**
  * Settings, the Main.dc.html cards. Two of them are live (the fleet name and
@@ -98,13 +171,8 @@ export function Settings() {
             Rotating it means re-sealing every stored credential, so it ships with the recovery kit in a later version.
           </div>
         </Card>
-        <Card>
-          <span className="font-display text-[18px] font-semibold">Weekly digest</span>
-          <div className="text-muted">
-            One email a week: what backed up, what did not, and which devices have gone quiet.
-          </div>
-          <div className="text-dim font-mono text-[12px]">Arrives in a later version, with SMTP settings.</div>
-        </Card>
+        <JobsCard settings={settings} onSaved={setSettings} onError={(message) => setToast({ message, bad: true })} />
+        <SmtpCard settings={settings} onSaved={setSettings} onError={(message) => setToast({ message, bad: true })} />
       </div>
       {toast && <Toast message={toast.message} tone={toast.bad ? "bad" : "ink"} onDismiss={() => setToast(null)} />}
     </div>
@@ -385,6 +453,333 @@ function AgentsCard({
             now - a per-fleet threshold is a later version. */}
         <Input readOnly value="stale after 26 h · failing after 7 d" className="font-mono text-[12px]" />
       </Field>
+    </Card>
+  );
+}
+
+/** One background-job interval: a preset dropdown plus a raw-seconds field
+ * for a value the presets don't offer, both saving immediately. */
+function IntervalField({
+  spec,
+  settings,
+  onSaved,
+  onError,
+}: {
+  spec: IntervalSpec;
+  settings: FleetSettings;
+  onSaved: (s: FleetSettings) => void;
+  onError: (message: string) => void;
+}) {
+  const stored = (settings[spec.key] as number | undefined) ?? spec.def;
+  // Reinitialized on every save via this component's `key` (see JobsCard),
+  // so no effect is needed to resync it with the settings prop.
+  const [raw, setRaw] = useState(String(stored));
+  const [busy, setBusy] = useState(false);
+
+  const choices = INTERVAL_CHOICES.filter((c) => c.seconds >= spec.min);
+  const options = choices.some((c) => c.seconds === stored)
+    ? choices
+    : [...choices, { seconds: stored, label: intervalLabel(stored) }].sort((a, b) => a.seconds - b.seconds);
+
+  async function save(seconds: number) {
+    if (!Number.isInteger(seconds) || seconds < spec.min) {
+      onError(`${spec.label} must be at least ${intervalLabel(spec.min)}.`);
+      return;
+    }
+    setBusy(true);
+    try {
+      onSaved(await fleet.setSetting(spec.key, seconds));
+    } catch (err) {
+      onError(apiError(err, `Could not save the ${spec.label.toLowerCase()} interval.`));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-[6px]">
+      <Eyebrow>{spec.label}</Eyebrow>
+      <div className="flex flex-wrap items-center gap-2">
+        <Select aria-label={spec.label} value={stored} disabled={busy} onChange={(e) => void save(Number(e.target.value))}>
+          {options.map((o) => (
+            <option key={o.seconds} value={o.seconds}>
+              {o.label}
+            </option>
+          ))}
+        </Select>
+        <form
+          className="flex items-center gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void save(Number(raw));
+          }}
+        >
+          <Input
+            aria-label={`${spec.label} in seconds`}
+            className="w-[100px] font-mono text-[12px]"
+            inputMode="numeric"
+            value={raw}
+            disabled={busy}
+            onChange={(e) => setRaw(e.target.value.replace(/\D/g, ""))}
+          />
+          <Button type="submit" disabled={busy || raw === ""}>
+            Set
+          </Button>
+        </form>
+      </div>
+      <div className="text-dim font-mono text-[11px]">{spec.help}</div>
+    </div>
+  );
+}
+
+/** Revoked-device retention, the one interval that is whole days, not
+ * seconds (`revoked_retention_days`, `fleet/jobs/reap.go`). */
+function RetentionField({
+  settings,
+  onSaved,
+  onError,
+}: {
+  settings: FleetSettings;
+  onSaved: (s: FleetSettings) => void;
+  onError: (message: string) => void;
+}) {
+  const stored = settings.revoked_retention_days ?? 30;
+  // Reinitialized on save via this component's `key` (see JobsCard).
+  const [days, setDays] = useState(String(stored));
+  const [busy, setBusy] = useState(false);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    const n = Number(days);
+    if (!Number.isInteger(n) || n < 1 || n > 3650) {
+      onError("Revoked device retention must be between 1 and 3650 days.");
+      return;
+    }
+    setBusy(true);
+    try {
+      onSaved(await fleet.setSetting("revoked_retention_days", n));
+    } catch (err) {
+      onError(apiError(err, "Could not save the retention window."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-[6px] border-t border-line pt-3">
+      <Eyebrow>Revoked device retention</Eyebrow>
+      <form onSubmit={save} className="flex items-center gap-2">
+        <Input
+          aria-label="Revoked device retention in days"
+          className="w-[100px] font-mono text-[12px]"
+          inputMode="numeric"
+          value={days}
+          disabled={busy}
+          onChange={(e) => setDays(e.target.value.replace(/\D/g, ""))}
+        />
+        <span className="text-dim font-mono text-[12px]">days</span>
+        <Button type="submit" disabled={busy || days === ""}>
+          Save
+        </Button>
+      </form>
+      <div className="text-dim font-mono text-[11px]">
+        How long a revoked device&apos;s repository is kept before the reap job deletes it.
+      </div>
+    </div>
+  );
+}
+
+/** Fleet-wide, not per-device: POSTs digest with no agent id. */
+function DigestButton({ onError }: { onError: (message: string) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  async function send() {
+    setBusy(true);
+    setSent(false);
+    try {
+      await fleet.createJob("digest");
+      setSent(true);
+    } catch (err) {
+      onError(apiError(err, "Could not queue the digest."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      <Button disabled={busy} onClick={() => void send()}>
+        Send digest now
+      </Button>
+      {sent && <span className="text-dim font-mono text-[11px]">Queued.</span>}
+    </div>
+  );
+}
+
+function JobsCard({
+  settings,
+  onSaved,
+  onError,
+}: {
+  settings: FleetSettings;
+  onSaved: (s: FleetSettings) => void;
+  onError: (message: string) => void;
+}) {
+  return (
+    <Card>
+      <span className="font-display text-[18px] font-semibold">Background jobs</span>
+      <div className="text-muted">How often each job runs on its own; no cron needed.</div>
+      <div className="flex flex-col gap-4">
+        {JOB_INTERVALS.map((spec) => (
+          // Keyed on the stored value (not just spec.key) so a save remounts
+          // the field with the new value as its initial state, instead of an
+          // effect reaching back to resync local state after the fact.
+          <IntervalField
+            key={`${spec.key}:${(settings[spec.key] as number | undefined) ?? spec.def}`}
+            spec={spec}
+            settings={settings}
+            onSaved={onSaved}
+            onError={onError}
+          />
+        ))}
+        <RetentionField
+          key={settings.revoked_retention_days ?? 30}
+          settings={settings}
+          onSaved={onSaved}
+          onError={onError}
+        />
+      </div>
+      <div className="flex items-center justify-between gap-3 border-t border-line pt-3">
+        <span className="text-muted">Weekly digest, right now</span>
+        <DigestButton onError={onError} />
+      </div>
+    </Card>
+  );
+}
+
+/** The ports the settings screen offers (`mail.AllowedPorts`), SMTP2GO's default first. */
+const SMTP_PORTS = [
+  { value: 2525, label: "2525 (SMTP2GO default)" },
+  { value: 587, label: "587 (STARTTLS)" },
+  { value: 465, label: "465 (implicit TLS)" },
+];
+
+function SmtpCard({
+  settings,
+  onSaved,
+  onError,
+}: {
+  settings: FleetSettings;
+  onSaved: (s: FleetSettings) => void;
+  onError: (message: string) => void;
+}) {
+  const [host, setHost] = useState(settings.smtp_host ?? "");
+  const [port, setPort] = useState(settings.smtp_port ?? SMTP_PORTS[0].value);
+  const [username, setUsername] = useState(settings.smtp_username ?? "");
+  const [from, setFrom] = useState(settings.smtp_from ?? "");
+  // Write-only: never seeded from settings, which never carries the password
+  // back - only smtp_password_set says whether one is stored.
+  const [password, setPassword] = useState("");
+  const [tls, setTls] = useState(settings.smtp_tls ?? true);
+  const [busy, setBusy] = useState(false);
+  const [testTo, setTestTo] = useState("");
+  const [testBusy, setTestBusy] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const saved = await fleet.setSettings({
+        smtp_host: host.trim(),
+        smtp_port: port,
+        smtp_username: username.trim(),
+        smtp_from: from.trim(),
+        smtp_tls: tls,
+        // "" (untouched) is left off the request; the server takes "leave it
+        // alone" as absence, not as an empty string.
+        ...(password !== "" ? { smtp_password: password } : {}),
+      });
+      onSaved(saved);
+      setPassword("");
+    } catch (err) {
+      onError(apiError(err, "Could not save the SMTP settings."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function sendTest(e: React.FormEvent) {
+    e.preventDefault();
+    setTestBusy(true);
+    setTestResult(null);
+    try {
+      await fleet.smtpTest(testTo.trim());
+      setTestResult({ ok: true, message: "Sent. Check the inbox." });
+    } catch (err) {
+      // The server's own SMTP error is the whole diagnosis (see
+      // handleSMTPTest); apiError already reads it back verbatim.
+      setTestResult({ ok: false, message: apiError(err, "Could not send the test email.") });
+    } finally {
+      setTestBusy(false);
+    }
+  }
+
+  return (
+    <Card>
+      <span className="font-display text-[18px] font-semibold">SMTP</span>
+      <div className="text-muted">Outbound mail for the test message and the weekly digest.</div>
+      <form onSubmit={save} className="flex flex-col gap-3">
+        <Field label="Host">
+          <Input value={host} autoComplete="off" onChange={(e) => setHost(e.target.value)} />
+        </Field>
+        <Field label="Port">
+          <Select value={port} onChange={(e) => setPort(Number(e.target.value))}>
+            {SMTP_PORTS.map((p) => (
+              <option key={p.value} value={p.value}>
+                {p.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Username">
+          <Input value={username} autoComplete="off" onChange={(e) => setUsername(e.target.value)} />
+        </Field>
+        <Field label="From address">
+          <Input type="email" value={from} autoComplete="off" onChange={(e) => setFrom(e.target.value)} />
+        </Field>
+        <Field label="Password">
+          <Input
+            type="password"
+            value={password}
+            autoComplete="new-password"
+            placeholder={settings.smtp_password_set ? "Leave blank to keep the stored password" : "Not set"}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </Field>
+        <div className="text-dim font-mono text-[12px]">
+          {settings.smtp_password_set ? "A password is set." : "No password is set."} It is sealed at rest and never
+          sent back to this screen.
+        </div>
+        <Checkbox checked={tls} onChange={(e) => setTls(e.target.checked)} label="Use TLS" />
+        <Button type="submit" variant="primary" disabled={busy} className="self-start">
+          Save
+        </Button>
+      </form>
+      <form onSubmit={sendTest} className="flex flex-col gap-3 border-t border-line pt-3">
+        <Field label="Send test email to">
+          <Input type="email" value={testTo} autoComplete="off" onChange={(e) => setTestTo(e.target.value)} />
+        </Field>
+        <Button type="submit" disabled={testBusy || testTo.trim() === ""} className="self-start">
+          Send test email
+        </Button>
+        {testResult && (
+          <p role="alert" className={testResult.ok ? "m-0 text-[13px] text-good" : "m-0 text-[13px] text-bad"}>
+            {testResult.message}
+          </p>
+        )}
+      </form>
     </Card>
   );
 }

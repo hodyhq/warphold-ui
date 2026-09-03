@@ -5,13 +5,15 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom";
 import { Device } from "../Device";
-import type { AgentDetail, Group, Report, Template } from "../../../api/types";
+import type { AgentDetail, Group, Job, Report, Template } from "../../../api/types";
 
 const agent = vi.fn();
 const groups = vi.fn();
 const templates = vi.fn();
+const agentJobs = vi.fn();
 const agentCommand = vi.fn();
 const revokeAgent = vi.fn();
+const createJob = vi.fn();
 
 vi.mock(import("../../../api/fleet"), async (importOriginal) => ({
   ...(await importOriginal()),
@@ -19,8 +21,10 @@ vi.mock(import("../../../api/fleet"), async (importOriginal) => ({
     agent: (id: string) => agent(id),
     groups: () => groups(),
     templates: () => templates(),
+    agentJobs: (id: string) => agentJobs(id),
     agentCommand: (id: string, kind: string, source?: string) => agentCommand(id, kind, source),
     revokeAgent: (id: string) => revokeAgent(id),
+    createJob: (kind: string, agentId?: string) => createJob(kind, agentId),
   } as unknown as typeof import("../../../api/fleet").fleet,
 }));
 
@@ -83,6 +87,39 @@ const TEMPLATES: Template[] = [
   { id: 2, name: "Server default", sources: ["/srv/media", "~/backups"], policy: {} },
 ];
 
+const JOBS: Job[] = [
+  {
+    id: 11,
+    kind: "verify",
+    agent_id: "ag_nuc",
+    scheduled_for: hoursAgo(3),
+    started_at: hoursAgo(3),
+    finished_at: hoursAgo(3),
+    status: "ok",
+    detail: "no errors found",
+  },
+  {
+    id: 12,
+    kind: "test-restore",
+    agent_id: "ag_nuc",
+    scheduled_for: hoursAgo(1),
+    started_at: hoursAgo(1),
+    finished_at: null,
+    status: "running",
+    detail: "",
+  },
+  {
+    id: 13,
+    kind: "maintenance",
+    agent_id: "ag_nuc",
+    scheduled_for: hoursAgo(30),
+    started_at: hoursAgo(30),
+    finished_at: hoursAgo(30),
+    status: "error",
+    detail: "kopia: maintenance failed: repository locked by another process for a very long time indeed",
+  },
+];
+
 function renderDevice() {
   return render(
     <MemoryRouter initialEntries={["/fleet/devices/ag_nuc"]}>
@@ -98,8 +135,10 @@ beforeEach(() => {
   agent.mockReset().mockResolvedValue(DETAIL);
   groups.mockReset().mockResolvedValue(GROUPS);
   templates.mockReset().mockResolvedValue(TEMPLATES);
+  agentJobs.mockReset().mockResolvedValue(JOBS);
   agentCommand.mockReset().mockResolvedValue({ id: 1 });
   revokeAgent.mockReset().mockResolvedValue(undefined);
+  createJob.mockReset().mockResolvedValue({ id: 99 });
 });
 
 describe("Device", () => {
@@ -141,11 +180,46 @@ describe("Device", () => {
     expect(await screen.findByRole("status")).toHaveTextContent(/snapshot/i);
   });
 
-  it("keeps Verify and Recovery kit disabled until a later plan", async () => {
+  it("keeps Recovery kit disabled until a later plan", async () => {
     renderDevice();
 
-    expect(await screen.findByRole("button", { name: /verify/i })).toBeDisabled();
+    await screen.findByRole("heading", { level: 1 });
     expect(screen.getByRole("button", { name: /recovery kit/i })).toBeDisabled();
+  });
+
+  it("lists jobs with a status pill per row", async () => {
+    renderDevice();
+    await waitFor(() => expect(document.querySelector('[data-row="11"]')).toBeInTheDocument());
+
+    const ok = document.querySelector('[data-row="11"]') as HTMLElement;
+    expect(ok).toHaveTextContent("verify");
+    expect(ok).toHaveTextContent("ok");
+
+    const running = document.querySelector('[data-row="12"]') as HTMLElement;
+    expect(running).toHaveTextContent("test-restore");
+    expect(running).toHaveTextContent("running");
+    expect(running).toHaveTextContent("—"); // finished_at: null renders as an em dash
+
+    const failed = document.querySelector('[data-row="13"]') as HTMLElement;
+    expect(failed).toHaveTextContent("maintenance");
+    expect(failed).toHaveTextContent("error");
+  });
+
+  it("expands a job's detail on click", async () => {
+    renderDevice();
+    await waitFor(() => expect(document.querySelector('[data-row="13"]')).toBeInTheDocument());
+
+    expect(screen.queryByTestId("job-detail")).not.toBeInTheDocument();
+    await userEvent.click(document.querySelector('[data-row="13"]') as HTMLElement);
+    expect(screen.getByTestId("job-detail")).toHaveTextContent("repository locked by another process");
+  });
+
+  it("queues a verify job for this device from Run verify", async () => {
+    renderDevice();
+
+    await userEvent.click(await screen.findByRole("button", { name: /run verify/i }));
+    expect(createJob).toHaveBeenCalledWith("verify", "ag_nuc");
+    expect(await screen.findByRole("status")).toHaveTextContent(/verify queued/i);
   });
 
   it("revokes only after the device name is typed", async () => {

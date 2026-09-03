@@ -179,14 +179,57 @@ export interface Overview {
 }
 
 /**
- * The two settings the server exposes (`fleet/api/admin_settings.go`). The
+ * The settings the server exposes (`fleet/api/admin_settings.go`). The
  * settings table holds more - seal_salt among them - which the endpoint
  * deliberately neither reads back nor accepts.
+ *
+ * The job-interval keys and `revoked_retention_days` are optional: they land
+ * with the jobs API (`fleet/jobs/scheduler.go` `intervals`, `fleet/jobs/reap.go`),
+ * built in parallel with this screen. Reading one back that the running server
+ * does not yet know falls back to its documented default; writing one PUTs
+ * "unknown setting" until that server-side support ships.
  */
 export interface Settings {
   fleet_name: string;
   /** Agent check-in interval in seconds; the server clamps it to 15..3600. */
   poll_interval: number;
+  /** Seconds; disk target -> offsite mirror. Default 3600, minimum 300. */
+  mirror_interval?: number;
+  /** Seconds; fleet-wide integrity check. Default 604800 (7 d), minimum 3600. */
+  verify_interval?: number;
+  /** Seconds; proves a backup restores. Default 2592000 (30 d), minimum 3600. */
+  test_restore_interval?: number;
+  /** Seconds; repository compaction/GC. Default 86400 (1 d), minimum 3600. */
+  maintenance_interval?: number;
+  /** Seconds; repository size/dedup stats (Task 31). Default 86400 (1 d). */
+  stats_interval?: number;
+  /** Seconds; weekly digest email (Task 31). Default 604800 (7 d). */
+  digest_interval?: number;
+  /** Whole days; how long a revoked device's repository is kept before the
+   *  reap job deletes it. Default 30, range 1..3650 - NOT seconds. */
+  revoked_retention_days?: number;
+
+  smtp_host?: string;
+  smtp_port?: number;
+  smtp_username?: string;
+  smtp_from?: string;
+  smtp_tls?: boolean;
+  /** All the API ever says about the password: whether one is stored. */
+  smtp_password_set?: boolean;
+}
+
+/** `jobOut` in admin_jobs.go: one row of the jobs table. */
+export interface Job {
+  id: number;
+  kind: string;
+  /** Absent for a fleet-wide job (mirror, digest, stats, reap). */
+  agent_id?: string;
+  scheduled_for: string;
+  started_at: string | null;
+  finished_at: string | null;
+  /** "pending" | "running" | "ok" | "error", plus whatever later jobs add. */
+  status: string;
+  detail: string;
 }
 
 /**

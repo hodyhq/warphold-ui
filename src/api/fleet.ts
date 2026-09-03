@@ -9,6 +9,7 @@ import type {
   CreatedToken,
   FleetStatus,
   Group,
+  Job,
   Overview,
   Settings,
   Target,
@@ -30,6 +31,13 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 /** Commands `handleAgentCommand` accepts. */
 export type CommandKind = "snapshot-now" | "pause" | "resume" | "verify";
+
+/**
+ * Kinds `handleJobCreate` accepts (`fleet/jobs.KindList`). "stats" and
+ * "digest" are Task 31's fleet-wide jobs: queuing them 400s ("kind must be
+ * one of ...") until that server-side support ships alongside this screen.
+ */
+export type JobKind = "verify" | "test-restore" | "maintenance" | "mirror" | "reap" | "stats" | "digest";
 
 export const fleetClient = axios.create({
   baseURL: "/api/v1/fleet",
@@ -130,6 +138,14 @@ export const fleet = {
     await fleetClient.post(`/agents/${encodeURIComponent(id)}/revoke`);
   },
 
+  /** Bounded to the 50 most recent rows (`jobsPerAgent`, admin_jobs.go). */
+  agentJobs: (id: string) => get<Job[]>(`/agents/${encodeURIComponent(id)}/jobs`),
+  /** `agentId` omitted enqueues a fleet-wide job (mirror, digest, stats, reap). */
+  async createJob(kind: JobKind, agentId?: string): Promise<Created> {
+    const r = await fleetClient.post<Created>("/jobs", agentId ? { kind, agent_id: agentId } : { kind });
+    return r.data;
+  },
+
   groups: () => get<Group[]>("/groups"),
   async createGroup(name: string, targetID: number, templateID: number): Promise<Created> {
     const r = await fleetClient.post<Created>("/groups", {
@@ -174,6 +190,15 @@ export const fleet = {
    */
   async setSetting<K extends keyof Settings>(key: K, value: Settings[K]): Promise<Settings> {
     return (await fleetClient.put<Settings>("/settings", { [key]: value })).data;
+  },
+  /** Same PUT, several keys at once - the SMTP form saves in one round trip. */
+  async setSettings(patch: Partial<Settings> & { smtp_password?: string | null }): Promise<Settings> {
+    return (await fleetClient.put<Settings>("/settings", patch)).data;
+  },
+
+  /** POST /settings/smtp/test: sends one message with the stored settings. */
+  async smtpTest(to: string): Promise<{ sent: boolean }> {
+    return (await fleetClient.post<{ sent: boolean }>("/settings/smtp/test", { to })).data;
   },
 };
 
