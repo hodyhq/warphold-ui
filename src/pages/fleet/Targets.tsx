@@ -162,7 +162,10 @@ export function Targets() {
                   </div>
                 )}
                 <div className="text-muted">
-                  {[t.kind === "b2" ? t.region : "on this server", `${count} device${count === 1 ? "" : "s"}`]
+                  {[
+                    t.kind === "b2" ? t.region : isCloudDirect(t) ? "devices write straight to the bucket" : "on this server",
+                    `${count} device${count === 1 ? "" : "s"}`,
+                  ]
                     .filter(Boolean)
                     .join(" · ")}
                 </div>

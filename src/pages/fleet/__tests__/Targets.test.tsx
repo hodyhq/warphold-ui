@@ -253,4 +253,13 @@ describe("offsite state on a target row", () => {
     expect(card).toHaveTextContent("offsite stale");
     expect(card).toHaveTextContent("Mirrored to B2 · hody-offsite");
   });
+
+  it("labels a cloud-direct hosted target as writing straight to the bucket, not 'on this server'", async () => {
+    targets.mockResolvedValue([hosted({ storage_mode: "cloud", bucket: "fleet", id: 9 })]);
+    render(<Targets />);
+
+    const card = await screen.findByTestId("target-9");
+    expect(card).toHaveTextContent("devices write straight to the bucket");
+    expect(card).not.toHaveTextContent("on this server");
+  });
 });

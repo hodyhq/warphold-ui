@@ -199,6 +199,7 @@ describe("the offsite KPI", () => {
     const tile = await screen.findByTestId("kpi-offsite");
     expect(tile).toHaveTextContent("0");
     expect(tile.querySelector(".text-warn")).toBeNull();
+    expect(tile.querySelector(".text-good")).not.toBeNull();
   });
 
   it("goes neutral, never green, when the server could not read the counter", async () => {
