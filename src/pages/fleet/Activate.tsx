@@ -105,6 +105,11 @@ function storagePayload(s: Storage): TargetInput {
   return out;
 }
 
+/** What survives step 4, whether it finished or was skipped: mode and path, never a credential. */
+export function scrubStorage(s: Storage): Storage {
+  return { ...EMPTY_STORAGE, mode: s.mode, path: s.path };
+}
+
 /** Whether step 4 carries everything the server requires for this mode. */
 function storageReady(s: Storage): boolean {
   if (s.mode === "disk") {
@@ -121,7 +126,7 @@ function storageReady(s: Storage): boolean {
 
 function Rail({ step }: { step: number }) {
   return (
-    <aside className="bg-panel border-line flex w-full shrink-0 flex-col gap-[6px] border-b px-5 py-6 md:w-[300px] md:border-r md:border-b-0 md:px-8 md:py-9">
+    <aside className="bg-panel border-line box-border flex w-full shrink-0 flex-col gap-[6px] border-b px-5 py-6 md:w-[300px] md:border-r md:border-b-0 md:px-8 md:py-9">
       <div className="mb-[26px] flex items-center gap-[10px]">
         <Mark size={24} />
         <span className="font-display text-[15px] font-extrabold">ACTIVATE FLEET</span>
@@ -132,7 +137,11 @@ function Rail({ step }: { step: number }) {
           const tone =
             n === step ? "text-ember border-ember" : n < step ? "text-good border-good" : "text-dim border-line-strong";
           return (
-            <li key={label} className="flex items-center gap-3 py-3" aria-current={n === step ? "step" : undefined}>
+            <li
+              key={label}
+              className="flex shrink-0 items-center gap-3 py-3"
+              aria-current={n === step ? "step" : undefined}
+            >
               <span
                 className={clsx(
                   "font-display flex h-7 w-7 items-center justify-center border text-[14px] font-extrabold",
@@ -381,6 +390,11 @@ export function Activate({ onActivated }: { onActivated?: () => void }) {
       // would otherwise sign in as an account that does not exist.
       await fleet.login(email.trim(), password);
       setActivated(true);
+      // Same reasoning as furnish()'s credentials: nothing past this point
+      // needs the passphrase or password, so they do not linger in memory.
+      setPassphrase("");
+      setAgain("");
+      setPassword("");
     } catch (err) {
       setError(apiError(err, "Activation failed."));
       setBusy(false);
@@ -411,7 +425,7 @@ export function Activate({ onActivated }: { onActivated?: () => void }) {
     try {
       await furnish();
       // The keys only ever existed in this form's state; they go with it.
-      setStorage({ ...EMPTY_STORAGE, mode: storage.mode, path: storage.path });
+      setStorage(scrubStorage(storage));
       setStep(5);
     } catch (err) {
       setError(apiError(err, "The storage could not be set up."));
@@ -422,6 +436,9 @@ export function Activate({ onActivated }: { onActivated?: () => void }) {
 
   function skipStorage() {
     setPartial("The fleet is on, but storage was not set up.");
+    // Whatever was typed into the cloud/mirror fields before skipping goes
+    // with them too - it was never sent anywhere.
+    setStorage(scrubStorage(storage));
     setStep(5);
   }
 

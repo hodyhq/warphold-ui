@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom";
-import { Activate } from "../Activate";
+import { Activate, scrubStorage } from "../Activate";
 
 const activate = vi.fn();
 const login = vi.fn();
@@ -327,5 +327,56 @@ describe("Activate", () => {
 
     expect(onActivated).toHaveBeenCalled();
     expect(await screen.findByText("sign-in screen")).toBeInTheDocument();
+  });
+
+  it("skips storage without ever sending the credentials typed into it", async () => {
+    renderWizard();
+    await reachStorage();
+    await userEvent.click(screen.getByRole("radio", { name: /cloud-direct/i }));
+    await userEvent.type(screen.getByLabelText(/^bucket$/i), "family-backups");
+    await userEvent.type(screen.getByLabelText(/^application key$/i), "SECRETKEY");
+
+    await userEvent.click(screen.getByRole("button", { name: /skip for now/i }));
+
+    expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent("Fleet is on.");
+    expect(createTarget).not.toHaveBeenCalled();
+  });
+});
+
+describe("scrubStorage", () => {
+  it("keeps only the mode and path, wiping every credential the form ever held", () => {
+    const filled = {
+      mode: "cloud" as const,
+      path: "/custom/path",
+      mirror: true,
+      mirrorKind: "s3" as const,
+      mirrorBucket: "mirror-bucket",
+      mirrorRegion: "us-west-004",
+      mirrorKeyID: "mirror-key-id",
+      mirrorKey: "mirror-secret",
+      cloudKind: "s3" as const,
+      endpoint: "s3.example.com",
+      bucket: "cloud-bucket",
+      region: "us-east-1",
+      keyID: "cloud-key-id",
+      key: "cloud-secret",
+    };
+
+    const scrubbed = scrubStorage(filled);
+
+    expect(scrubbed.mode).toBe("cloud");
+    expect(scrubbed.path).toBe("/custom/path");
+    expect(scrubbed).toMatchObject({
+      mirror: false,
+      mirrorBucket: "",
+      mirrorRegion: "",
+      mirrorKeyID: "",
+      mirrorKey: "",
+      endpoint: "",
+      bucket: "",
+      region: "",
+      keyID: "",
+      key: "",
+    });
   });
 });
