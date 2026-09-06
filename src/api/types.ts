@@ -201,9 +201,9 @@ export interface Settings {
   test_restore_interval?: number;
   /** Seconds; repository compaction/GC. Default 86400 (1 d), minimum 3600. */
   maintenance_interval?: number;
-  /** Seconds; repository size/dedup stats (Task 31). Default 86400 (1 d). */
+  /** Seconds; repository size/dedup stats (Task 31). Default 86400 (1 d), minimum 3600. */
   stats_interval?: number;
-  /** Seconds; weekly digest email (Task 31). Default 604800 (7 d). */
+  /** Seconds; weekly digest email (Task 31). Default 604800 (7 d), minimum 86400 (1 d). */
   digest_interval?: number;
   /** Whole days; how long a revoked device's repository is kept before the
    *  reap job deletes it. Default 30, range 1..3650 - NOT seconds. */

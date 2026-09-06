@@ -88,7 +88,7 @@ const JOB_INTERVALS: IntervalSpec[] = [
     key: "digest_interval",
     label: "Digest email",
     help: "The weekly summary, to every admin.",
-    min: 3_600,
+    min: 86_400,
     def: 7 * 86_400,
   },
 ];

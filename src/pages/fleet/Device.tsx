@@ -87,7 +87,6 @@ function runRows(reports: Report[]): TableRow[] {
 const JOB_TONE: Record<string, Tone | "ink"> = {
   ok: "good",
   error: "bad",
-  failed: "bad",
   running: "warn",
   pending: "ink",
   skipped: "ink",
