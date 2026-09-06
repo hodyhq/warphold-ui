@@ -81,7 +81,9 @@ Kinetic, under [`src/design/`](src/design):
 seeds them with invented demo data, and captures every screen at 1440 px and
 412 px into `docs/screenshots/`. No browser-automation dependency is added — it
 drives headless Chrome over CDP with the WebSocket already in Node (requires
-Node.js 22.0.0+, where the global `WebSocket` is no longer experimental).
+Node.js 22.0.0+, where the global `WebSocket` is available without the
+`--experimental-websocket` flag; it's no longer marked experimental as of
+Node.js 22.4.0).
 
 ```sh
 scripts/screenshots.sh                     # everything
