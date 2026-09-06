@@ -23,7 +23,7 @@ The server depends on `github.com/hodyhq/warphold-ui` and mounts what
 checkout:
 
 ```sh
-go get github.com/hodyhq/warphold-ui@v0.2.0   # then commit go.mod + go.sum
+go get github.com/hodyhq/warphold-ui@vX.Y.Z   # then commit go.mod + go.sum
 ```
 
 Because the module serves `build/`, that directory is **committed on purpose**
@@ -34,7 +34,7 @@ build step.
 
 ```sh
 scripts/release-build.sh          # npm ci && npm run build, then commits build/
-git tag v0.2.1 && git push --tags # the tag IS the module version
+git tag vX.Y.Z && git push origin vX.Y.Z # the tag IS the module version
 ```
 
 Then bump the dependency in the server repo with the `go get` above. The script
@@ -80,7 +80,8 @@ Kinetic, under [`src/design/`](src/design):
 `scripts/screenshots.sh` builds this checkout, stands up throwaway servers,
 seeds them with invented demo data, and captures every screen at 1440 px and
 412 px into `docs/screenshots/`. No browser-automation dependency is added — it
-drives headless Chrome over CDP with the WebSocket already in Node.
+drives headless Chrome over CDP with the WebSocket already in Node (requires
+Node.js 22.0.0+, where the global `WebSocket` is no longer experimental).
 
 ```sh
 scripts/screenshots.sh                     # everything
