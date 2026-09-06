@@ -241,10 +241,19 @@ function BucketFields({
 }
 
 /** Step 4's fields: Fleet disk with an optional mirror, or cloud-direct. */
-function StorageFields({ value, onChange }: { value: Storage; onChange: (s: Storage) => void }) {
+function StorageFields({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: Storage;
+  onChange: (s: Storage) => void;
+  /** True once fleet.createTarget has succeeded: a retry must reuse that target as-is. */
+  disabled?: boolean;
+}) {
   const set = (patch: Partial<Storage>) => onChange({ ...value, ...patch });
   return (
-    <>
+    <fieldset disabled={disabled} className="m-0 contents border-0 p-0">
       <Choice<StorageMode>
         name="storage-mode"
         value={value.mode}
@@ -332,7 +341,7 @@ function StorageFields({ value, onChange }: { value: Storage; onChange: (s: Stor
           <p className="text-dim m-0 font-mono text-[11px]">{OBJECT_LOCK_NOTE}</p>
         </>
       )}
-    </>
+    </fieldset>
   );
 }
 
@@ -391,17 +400,27 @@ export function Activate({ onActivated }: { onActivated?: () => void }) {
     setBusy(true);
     try {
       await fleet.activate(setupToken.trim(), passphrase, email.trim(), password, publicURL.trim());
+    } catch (err) {
+      setError(apiError(err, "Activation failed."));
+      setBusy(false);
+      return;
+    }
+    // The fleet exists from here on: a retry must never re-post /activate
+    // with a setup token the server already consumed. Track sign-in
+    // separately so a login failure surfaces as "signed out", not "not
+    // activated".
+    setActivated(true);
+    try {
       // The same trimmed address activation just registered: a stray space
       // would otherwise sign in as an account that does not exist.
       await fleet.login(email.trim(), password);
-      setActivated(true);
       // Same reasoning as furnish()'s credentials: nothing past this point
       // needs the passphrase or password, so they do not linger in memory.
       setPassphrase("");
       setAgain("");
       setPassword("");
     } catch (err) {
-      setError(apiError(err, "Activation failed."));
+      setError(apiError(err, "The fleet is activated, but the sign-in failed. Sign in to finish the setup."));
       setBusy(false);
       return;
     }
@@ -462,7 +481,7 @@ export function Activate({ onActivated }: { onActivated?: () => void }) {
 
   const step1Ready = setupToken.trim() !== "" && passphrase.length >= MIN_SECRET && passphrase === again;
   const step2Ready = email.trim().includes("@") && password.length >= MIN_SECRET;
-  const step3Ready = /^https?:\/\/[^\s/]+$/.test(publicURL.trim());
+  const step3Ready = /^https?:\/\/[^\s/]+\/?$/.test(publicURL.trim());
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
@@ -602,12 +621,28 @@ export function Activate({ onActivated }: { onActivated?: () => void }) {
                 Back
               </Button>
               <div className="flex flex-wrap gap-2">
-                {activated && !verified && <Button onClick={() => setStep(4)}>Continue anyway</Button>}
+                {activated && !verified && (
+                  <Button
+                    onClick={() => {
+                      setError("");
+                      setStep(4);
+                    }}
+                  >
+                    Continue anyway
+                  </Button>
+                )}
                 {activated ? (
                   <Button
                     variant="primary"
                     disabled={busy || !step3Ready}
-                    onClick={() => (verified ? setStep(4) : verify())}
+                    onClick={() => {
+                      if (!verified) {
+                        void verify();
+                        return;
+                      }
+                      setError("");
+                      setStep(4);
+                    }}
                   >
                     {verified ? "Continue" : "Re-test"}
                   </Button>
@@ -639,7 +674,7 @@ export function Activate({ onActivated }: { onActivated?: () => void }) {
               Devices never hold cloud credentials either way: they talk to this server, and this server decides where
               the bytes land.
             </p>
-            <StorageFields value={storage} onChange={setStorage} />
+            <StorageFields value={storage} onChange={setStorage} disabled={createdTargetId !== null} />
             {error && (
               <p role="alert" className="text-bad m-0 text-[13px]">
                 {error}

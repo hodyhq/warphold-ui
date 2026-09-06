@@ -306,6 +306,18 @@ describe("Activate", () => {
     expect(screen.getByRole("button", { name: /finish setup/i })).toBeInTheDocument();
   });
 
+  it("does not create a second target when a partial failure after it is retried", async () => {
+    createToken.mockRejectedValueOnce({ response: { data: { error: "token service unavailable" } } });
+    renderWizard();
+    await reachStorage();
+    await userEvent.click(screen.getByRole("button", { name: /finish setup/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/token service unavailable/i);
+
+    await userEvent.click(screen.getByRole("button", { name: /finish setup/i }));
+    await waitFor(() => expect(createToken).toHaveBeenCalledTimes(2));
+    expect(createTarget).toHaveBeenCalledTimes(1);
+  });
+
   it("stays on the public URL step with the server's reason when the setup token is wrong", async () => {
     activate.mockRejectedValue({
       response: { status: 403, data: { error: "activation requires the X-WarpHold-Setup-Token header" } },
