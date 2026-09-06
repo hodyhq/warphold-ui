@@ -365,11 +365,14 @@ export function Activate({ onActivated }: { onActivated?: () => void }) {
   const [enrollToken, setEnrollToken] = useState("");
   /** Set when activation worked but the fleet could not be furnished after it. */
   const [partial, setPartial] = useState("");
+  /** Remembers furnish()'s target across a retry so a partial failure doesn't create a second one. */
+  const [createdTargetId, setCreatedTargetId] = useState<number | null>(null);
 
   /** The probe, on whatever the field currently says. Never fatal. */
   async function verify(): Promise<void> {
     setError("");
     setRequirements([]);
+    setBusy(true);
     try {
       await fleet.setPublicURL(publicURL.trim());
       setVerified(true);
@@ -377,6 +380,8 @@ export function Activate({ onActivated }: { onActivated?: () => void }) {
       setVerified(false);
       setError(apiError(err, "The public URL could not be checked."));
       setRequirements(proxyRequirements(err));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -400,21 +405,28 @@ export function Activate({ onActivated }: { onActivated?: () => void }) {
       setBusy(false);
       return;
     }
+    // verify() owns busy for the remainder of this call (set/cleared in its own try/finally).
     await verify();
-    setBusy(false);
   }
 
   /** Steps 4 and 5, on the session activation created. */
   async function furnish(): Promise<void> {
-    const created = await fleet.createTarget(storagePayload(storage));
     // Idempotent per row: a run that died after the target must be able to
-    // finish, and re-creating a "Home" that is already there would leave two.
+    // finish, and re-creating a "Home" (or a second target) that is already
+    // there would leave two. The target has no name to dedupe by like the
+    // template/group below, so its id is remembered across a retry instead.
+    let targetId = createdTargetId;
+    if (targetId === null) {
+      const created = await fleet.createTarget(storagePayload(storage));
+      targetId = created.id;
+      setCreatedTargetId(targetId);
+    }
     const templates = await fleet.templates();
     const template =
       templates.find((t) => t.name === FIRST_TEMPLATE.name) ?? (await fleet.createTemplate(FIRST_TEMPLATE));
     const groups = await fleet.groups();
     const group =
-      groups.find((g) => g.target_id === created.id) ?? (await fleet.createGroup(FIRST_GROUP, created.id, template.id));
+      groups.find((g) => g.target_id === targetId) ?? (await fleet.createGroup(FIRST_GROUP, targetId, template.id));
     const token = await fleet.createToken(group.id, FIRST_TOKEN_TTL, 1);
     setEnrollToken(token.token);
   }
