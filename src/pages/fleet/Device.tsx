@@ -16,7 +16,7 @@ import {
 } from "../../design/components";
 import type { StripTone, TableRow } from "../../design/components";
 import { apiError, fleet, type CommandKind } from "../../api/fleet";
-import type { AgentDetail, Report, Template } from "../../api/types";
+import type { AgentDetail, MirrorState, Report, Template } from "../../api/types";
 import { formatBytes, formatDuration, relativeTime } from "../../lib/format";
 import { HEALTH_TEXT, HEALTH_TONE } from "./health";
 
@@ -52,6 +52,27 @@ function stripFromReports(reports: Report[], now: number = Date.now()): StripTon
     }
   }
   return days;
+}
+
+/**
+ * The device's offsite line, or null when its target keeps no mirror at all -
+ * "there is no offsite copy of this fleet" is a target-level fact and the
+ * device card would only repeat it once per device.
+ */
+export function offsiteLine(
+  m: MirrorState | null,
+  now?: number,
+): { text: string; tone: "bad" | "warn" | "good" } | null {
+  if (!m) {
+    return null;
+  }
+  if (m.mirrored_at === null) {
+    return { text: "Offsite · not mirrored", tone: "bad" };
+  }
+  if (m.stale) {
+    return { text: `Offsite · stale, last ${relativeTime(m.mirrored_at, now)}`, tone: "warn" };
+  }
+  return { text: `Offsite · mirrored ${relativeTime(m.mirrored_at, now)}`, tone: "good" };
 }
 
 function startedLabel(iso: string): string {
@@ -203,6 +224,7 @@ export function Device() {
   const goodDays = days.filter((d) => d === "good").length;
   const revoked = detail.revoked_at !== null;
   const openReport = expanded === null ? undefined : reports.find((r) => String(r.id) === expanded);
+  const offsite = offsiteLine(detail.mirror);
 
   return (
     <div className="flex min-h-0 grow flex-col gap-[18px]">
@@ -272,6 +294,11 @@ export function Device() {
               number out of the bytes these runs happened to upload. */}
           <div className="font-display text-[28px] leading-none font-extrabold">—</div>
           <div className="font-mono text-[12px] text-dim">Repository stats arrive in a later version.</div>
+          {offsite && (
+            <div data-testid="device-offsite" className={clsx("font-mono text-[12px]", toneText[offsite.tone])}>
+              {offsite.text}
+            </div>
+          )}
         </Card>
         <Card data-testid="kpi-days">
           <Eyebrow>Last 30 days</Eyebrow>

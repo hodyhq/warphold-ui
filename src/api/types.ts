@@ -55,6 +55,8 @@ export interface Report {
 /** GET /agents/{id}: agentOut flattened alongside the last 20 reports. */
 export interface AgentDetail extends AgentOut {
   reports: Report[] | null;
+  /** null when this device's target keeps no offsite copy at all. */
+  mirror: MirrorState | null;
 }
 
 /** `groupOut` in admin_groups.go. */
@@ -97,13 +99,28 @@ export interface Target {
   /** Bare host[:port] of a cloud-direct target that is not Backblaze B2. */
   endpoint?: string;
   object_lock_verified_at?: string | null;
-
   /** Hosted targets only; the mirror is only ever offered for storage_mode "disk". */
   storage_mode?: StorageMode;
-  mirror_kind?: "b2" | "s3";
+  /** "" or absent means this target keeps no offsite copy. */
+  mirror_kind?: "b2" | "s3" | "";
   mirror_bucket?: string;
   mirror_region?: string;
+  /** Set once the mirror bucket's Object Lock has been confirmed. */
   mirror_lock_verified_at?: string | null;
+  /** Derived server-side: the newest device mirror under this target. */
+  mirrored_at?: string | null;
+  /** Derived server-side: some device in this target is behind offsite. */
+  mirror_stale?: boolean;
+}
+
+/**
+ * A device's offsite copy (`mirrorOut` in admin_agents.go). Stale means the
+ * last mirror is older than three mirror intervals - or never happened.
+ */
+export interface MirrorState {
+  mirrored_at: string | null;
+  mirrored_bytes: number;
+  stale: boolean;
 }
 
 export interface TargetInput {
@@ -194,6 +211,12 @@ export interface Overview {
     finished_at: string;
     stderr: string;
   } | null;
+  offsite: {
+    targets_with_mirror: number;
+    stale_devices: number;
+    /** The server could not read the counter; render neutral, never green. */
+    unknown: boolean;
+  };
   devices: OverviewDevice[];
 }
 
