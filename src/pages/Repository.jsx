@@ -1,6 +1,6 @@
 import axios from "axios";
 import React, { Component } from "react";
-import { Button, Card, Eyebrow, Input, Pill, Spinner } from "../design/components";
+import { Button, Eyebrow, Input, Pill, Spinner } from "../design/components";
 import { Col, Row } from "../components/Layout";
 import { handleChange } from "../forms";
 import { SetupRepository } from "../components/SetupRepository";
@@ -10,11 +10,6 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCheck, faChevronCircleDown, faChevronCircleUp, faWindowClose } from "@fortawesome/free-solid-svg-icons";
 import { Logs } from "../components/Logs";
 import { AppContext } from "../contexts/AppContext";
-
-/** The ghost `Button` look, for the link into the Fleet activation wizard. */
-const GHOST_LINK_BUTTON =
-  "inline-block shrink-0 cursor-pointer rounded-sm border border-ember bg-transparent px-[14px] py-[9px] " +
-  "text-[12px] font-semibold tracking-[0.06em] text-ember uppercase hover:border-ember-soft hover:text-ember-soft";
 
 export class Repository extends Component {
   constructor() {
@@ -293,22 +288,6 @@ export class Repository extends Component {
               </Button>
             </div>
           </div>
-
-          {/* Solo.dc.html's upsell: the same machine can host the fleet. */}
-          <Card className="flex-row flex-wrap items-center justify-between gap-4 border-line-strong">
-            <div>
-              <div className="font-display text-[18px] font-semibold">Turn this machine into a Fleet server</div>
-              <div className="mt-[6px] text-muted">
-                Enroll other computers, push them policies, keep their recovery keys, and see them all on one screen.
-              </div>
-            </div>
-            {/* A full navigation, not a router Link: /fleet is served by the
-                fleet shell, which this bundle only mounts after re-detecting
-                the mode at boot. */}
-            <a href="/fleet/activate" className={GHOST_LINK_BUTTON}>
-              Activate Fleet
-            </a>
-          </Card>
 
           <CLIEquivalent command="repository status" />
         </div>

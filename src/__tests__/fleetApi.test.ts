@@ -1,6 +1,6 @@
 import MockAdapter from "axios-mock-adapter";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fleet, fleetClient } from "../api/fleet";
+import { fleet, fleetClient, proxyRequirements } from "../api/fleet";
 
 let mock: MockAdapter;
 const realLocation = window.location;
@@ -85,7 +85,7 @@ describe("fleet API client", () => {
   it("carries the setup token in its header, never in the activation body", async () => {
     mock.onPost("/activate").reply(201, { admin_id: 1 });
 
-    await fleet.activate("setup-token-value", "seal me please", "admin@example.com", "pw12345678");
+    await fleet.activate("setup-token-value", "seal me please", "admin@example.com", "pw12345678", "https://f.example");
 
     const req = mock.history.post[0];
     expect(req.headers?.["X-WarpHold-Setup-Token"]).toBe("setup-token-value");
@@ -93,7 +93,24 @@ describe("fleet API client", () => {
       passphrase: "seal me please",
       email: "admin@example.com",
       password: "pw12345678",
+      public_url: "https://f.example",
     });
+  });
+
+  it("asks the server to prove the public URL before storing it", async () => {
+    mock.onPut("/settings").reply(200, { fleet_name: "", poll_interval: 300, public_url: "https://f.example" });
+
+    await fleet.setPublicURL("https://f.example");
+
+    expect(JSON.parse(mock.history.put[0].data)).toEqual({ public_url: "https://f.example", verify: true });
+  });
+
+  it("reads the proxy checklist off a failed probe, and off nothing else", () => {
+    expect(
+      proxyRequirements({ response: { data: { proxy_requirements: ["forward the Host header unchanged"] } } }),
+    ).toEqual(["forward the Host header unchanged"]);
+    expect(proxyRequirements({ response: { data: { error: "public_url is not a URL" } } })).toEqual([]);
+    expect(proxyRequirements(new Error("offline"))).toEqual([]);
   });
 
   it("puts one changed setting in a partial PUT and returns the merged result", async () => {
