@@ -197,7 +197,9 @@ export function Device() {
     function load() {
       // The group names the device and picks its template; both are small
       // list endpoints, so this is four calls per poll, not one per source.
-      Promise.all([fleet.agent(id), fleet.groups(), fleet.templates(), fleet.agentJobs(id)]).then(
+      // A jobs-request failure must not blank the whole screen - the table
+      // just stays empty until the next poll.
+      Promise.all([fleet.agent(id), fleet.groups(), fleet.templates(), fleet.agentJobs(id).catch(() => [] as Job[])]).then(
         ([a, gs, ts, js]) => {
           if (!live) {
             return;

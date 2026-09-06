@@ -276,6 +276,14 @@ describe("Device", () => {
     await userEvent.click(await screen.findByRole("button", { name: /try again/i }));
     expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent("media-nuc");
   });
+
+  it("still renders the device when only its jobs fail to load", async () => {
+    agentJobs.mockRejectedValueOnce(new Error("jobs down"));
+    renderDevice();
+
+    expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent("media-nuc");
+    expect(screen.queryByRole("button", { name: /try again/i })).not.toBeInTheDocument();
+  });
 });
 
 describe("the device's offsite line", () => {
