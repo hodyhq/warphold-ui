@@ -111,8 +111,13 @@ export function Overview() {
     );
   }
 
-  const { counts, last24h, latest_failure: failure, devices } = data;
+  const { counts, last24h, latest_failure: failure, devices, offsite } = data;
   const stored = data.dedup_ratio == null ? null : splitBytes(data.stored_bytes);
+  // Protected / Stale / Failing, plus Stored and Offsite when there is
+  // anything to say. Two per row on a phone once there are more than three.
+  // offsite is optional-chained: a server that predates the field must not
+  // blank the whole dashboard on a property read.
+  const tiles = 3 + (stored ? 1 : 0) + (offsite?.targets_with_mirror ? 1 : 0);
 
   return (
     <div className="grid min-h-0 grow grid-cols-1 gap-10 md:grid-cols-[1.15fr_1fr] md:gap-14">
@@ -134,7 +139,7 @@ export function Overview() {
         <div
           className={clsx(
             "grid gap-[1px] border border-line bg-line",
-            stored ? "grid-cols-2 md:grid-cols-4" : "grid-cols-3",
+            { 3: "grid-cols-3", 4: "grid-cols-2 md:grid-cols-4", 5: "grid-cols-2 md:grid-cols-5" }[tiles],
           )}
         >
           <Tile id="protected" label="Protected" value={counts.green} tone="good" />
@@ -143,6 +148,18 @@ export function Overview() {
           {stored && (
             <Tile id="stored" label="Stored" value={stored[0]} unit={stored[1]} sub={`${data.dedup_ratio}× dedup`} />
           )}
+          {offsite?.targets_with_mirror ? (
+            // Unknown is neutral, never a green "0 behind": the server could
+            // not read the counter and saying nothing is wrong would be the
+            // one lie that matters here.
+            <Tile
+              id="offsite"
+              label="Offsite"
+              value={offsite.unknown ? "—" : offsite.stale_devices}
+              tone={offsite.unknown ? "ink" : offsite.stale_devices > 0 ? "warn" : "good"}
+              sub={offsite.unknown ? "unavailable" : "behind"}
+            />
+          ) : null}
         </div>
 
         <div>

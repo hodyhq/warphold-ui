@@ -10,6 +10,7 @@ import type {
   FleetStatus,
   Group,
   Job,
+  JobIntervals,
   Overview,
   Settings,
   Target,
@@ -97,10 +98,20 @@ export const fleet = {
    * First-run activation. The setup token is the one-time secret the server
    * writes to <state dir>/setup-token; it is passed per call and never stored.
    */
-  async activate(setupToken: string, passphrase: string, email: string, password: string): Promise<Activated> {
+  async activate(
+    setupToken: string,
+    passphrase: string,
+    email: string,
+    password: string,
+    publicURL = "",
+  ): Promise<Activated> {
     const r = await fleetClient.post<Activated>(
+      // public_url rides along with activation so the wizard's URL step is
+      // stored before the session exists. The server checks its syntax only:
+      // the end-to-end probe needs an activated fleet to answer, which is why
+      // setPublicURL runs straight after this.
       "/activate",
-      { passphrase, email, password },
+      { passphrase, email, password, public_url: publicURL },
       { headers: { [SETUP_TOKEN_HEADER]: setupToken } },
     );
     return r.data;
@@ -195,12 +206,41 @@ export const fleet = {
   async setSettings(patch: Partial<Settings> & { smtp_password?: string | null }): Promise<Settings> {
     return (await fleetClient.put<Settings>("/settings", patch)).data;
   },
+  /**
+   * A job-interval key: unlike the rest of `Settings`, the PUT body takes it
+   * flat (`mirror_interval`, ...) while the response nests it under
+   * `job_intervals` (`admin_settings.go`'s `settingsOut`), so it cannot share
+   * `setSetting`'s `keyof Settings` constraint.
+   */
+  async setJobInterval<K extends keyof JobIntervals>(key: K, value: JobIntervals[K]): Promise<Settings> {
+    return (await fleetClient.put<Settings>("/settings", { [key]: value })).data;
+  },
 
   /** POST /settings/smtp/test: sends one message with the stored settings. */
   async smtpTest(to: string): Promise<{ sent: boolean }> {
     return (await fleetClient.post<{ sent: boolean }>("/settings/smtp/test", { to })).data;
   },
+
+  /**
+   * Store the public URL, having the server prove it reaches this fleet first:
+   * it fetches `<url>/api/v1/fleet/status` through the proxy and TLS and
+   * checks the instance id it gets back. A 400 from a failed probe carries
+   * `proxy_requirements`; `proxyRequirements(err)` reads them out.
+   */
+  async setPublicURL(url: string, verify = true): Promise<Settings> {
+    return (await fleetClient.put<Settings>("/settings", { public_url: url, verify })).data;
+  },
 };
+
+/**
+ * The proxy checklist the server sends with a failed public-URL probe, or an
+ * empty list for any other error - a syntax rejection carries no checklist,
+ * and printing one under "that is not a URL" would be noise.
+ */
+export function proxyRequirements(err: unknown): string[] {
+  const list = (err as AxiosError<{ proxy_requirements?: unknown }>)?.response?.data?.proxy_requirements;
+  return Array.isArray(list) ? list.filter((s): s is string => typeof s === "string") : [];
+}
 
 /** Message the server sent with an error response, or a fallback. */
 export function apiError(err: unknown, fallback: string): string {

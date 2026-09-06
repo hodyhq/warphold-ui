@@ -138,6 +138,17 @@ function headline(
   return { ok: true, note: `last good backup ${relativeTime(new Date(newest).toISOString(), now)}` };
 }
 
+/**
+ * The device's own name for the header eyebrow. `/local/info` carries the name
+ * the device enrolled under, which is what the person at the machine
+ * recognises; the address it happens to be served on is an implementation
+ * detail of the tray's handoff and means nothing to them. Before enrolment
+ * there is no name, and the browser's hostname is the only thing left.
+ */
+export function deviceLabel(name: string, hostname: string): string {
+  return name || hostname;
+}
+
 /** Vault label: `group · name`, the name alone, or the product name. */
 export function vaultLabel(group: string, name: string): string {
   if (!name) {
@@ -202,6 +213,7 @@ function runRows(tasks: TaskInfo[], sources: SourceStatus[]): TableRow[] {
 
 interface Loaded {
   vault: string;
+  device: string;
   sources: SourceStatus[];
   tasks: TaskInfo[];
   /** Snapshots per source, index-aligned with `sources` (one query each). */
@@ -242,6 +254,7 @@ export function AgentHome() {
       const perSource = await Promise.all(sources.map((s) => engine.snapshots(s.source)));
       return {
         vault: vaultLabel(info.group, info.name),
+        device: deviceLabel(info.name, window.location.hostname),
         sources,
         tasks: taskList.tasks,
         snapshots: perSource.map((r) => r.snapshots),
@@ -349,7 +362,7 @@ export function AgentHome() {
       <header className="relative flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-4 md:flex-nowrap md:px-11 md:py-[22px]">
         <Mark />
         <span className="font-display text-[15px] font-extrabold">WARPHOLD</span>
-        <span className="font-mono text-[12px] text-dim">agent · {window.location.host}</span>
+        <span className="font-mono text-[12px] text-dim">agent · {data.device}</span>
         <div className="grow" />
         <span className="font-mono text-[12px] text-muted">{data.vault}</span>
       </header>

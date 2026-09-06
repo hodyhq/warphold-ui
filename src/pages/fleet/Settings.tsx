@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Button, Card, Checkbox, Dialog, Eyebrow, Field, Input, Select, Toast } from "../../design/components";
-import { apiError, fleet } from "../../api/fleet";
-import type { Admin, Settings as FleetSettings } from "../../api/types";
+import { apiError, fleet, proxyRequirements } from "../../api/fleet";
+import type { Admin, JobIntervals, Settings as FleetSettings } from "../../api/types";
 
 /**
  * Agent poll intervals worth offering. The server accepts 15..3600 seconds;
@@ -54,7 +54,7 @@ function intervalLabel(seconds: number): string {
 }
 
 interface IntervalSpec {
-  key: keyof FleetSettings;
+  key: keyof JobIntervals;
   label: string;
   help: string;
   min: number;
@@ -80,6 +80,13 @@ const JOB_INTERVALS: IntervalSpec[] = [
     key: "maintenance_interval",
     label: "Maintenance",
     help: "Repository compaction and garbage collection.",
+    min: 3_600,
+    def: 86_400,
+  },
+  {
+    key: "reap_interval",
+    label: "Reap",
+    help: "Deletes a revoked device's repository once its retention window is up.",
     min: 3_600,
     def: 86_400,
   },
@@ -156,8 +163,16 @@ export function Settings() {
           }}
           onError={(message) => setToast({ message, bad: true })}
         />
-        <AdminsCard admins={admins} onChanged={reload} onError={(message) => setToast({ message, bad: true })} />
         <AgentsCard settings={settings} onSaved={setSettings} onError={(message) => setToast({ message, bad: true })} />
+        <PublicURLCard
+          settings={settings}
+          onSaved={(s) => {
+            setSettings(s);
+            setToast({ message: "Public URL verified and saved.", bad: false });
+          }}
+        />
+        <JobsCard settings={settings} onSaved={setSettings} onError={(message) => setToast({ message, bad: true })} />
+        <SmtpCard settings={settings} onSaved={setSettings} onError={(message) => setToast({ message, bad: true })} />
         <Card>
           <span className="font-display text-[18px] font-semibold">Sealing passphrase</span>
           <div className="text-muted">
@@ -171,8 +186,7 @@ export function Settings() {
             Rotating it means re-sealing every stored credential, so it ships with the recovery kit in a later version.
           </div>
         </Card>
-        <JobsCard settings={settings} onSaved={setSettings} onError={(message) => setToast({ message, bad: true })} />
-        <SmtpCard settings={settings} onSaved={setSettings} onError={(message) => setToast({ message, bad: true })} />
+        <AdminsCard admins={admins} onChanged={reload} onError={(message) => setToast({ message, bad: true })} />
       </div>
       {toast && <Toast message={toast.message} tone={toast.bad ? "bad" : "ink"} onDismiss={() => setToast(null)} />}
     </div>
@@ -221,6 +235,73 @@ function FleetNameCard({
         </Button>
       </form>
       <div className="text-dim font-mono text-[12px]">Shown in the header and on the weekly digest.</div>
+    </Card>
+  );
+}
+
+/**
+ * The one address every device, browser and proxy uses (spec 6). Saving runs
+ * the server's end-to-end probe - it fetches its own status back through the
+ * URL - so a proxy that swallows the path fails here rather than on the first
+ * device's first snapshot. This is also where a wizard that was told to
+ * continue with an unverified URL gets re-tested.
+ */
+function PublicURLCard({ settings, onSaved }: { settings: FleetSettings; onSaved: (s: FleetSettings) => void }) {
+  const [url, setURL] = useState(settings.public_url);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [requirements, setRequirements] = useState<string[]>([]);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    setRequirements([]);
+    try {
+      onSaved(await fleet.setPublicURL(url.trim()));
+    } catch (err) {
+      setError(apiError(err, "The public URL could not be checked."));
+      setRequirements(proxyRequirements(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card>
+      <span className="font-display text-[18px] font-semibold">Public URL</span>
+      <form onSubmit={save} className="flex flex-col gap-3">
+        <Field label="URL">
+          <Input
+            type="url"
+            value={url}
+            autoComplete="off"
+            placeholder="https://fleet.example.com"
+            onChange={(e) => setURL(e.target.value)}
+          />
+        </Field>
+        <Button type="submit" variant="primary" disabled={busy} className="self-start">
+          {busy ? "Testing…" : "Test and save"}
+        </Button>
+      </form>
+      {error && (
+        <div role="alert" className="flex flex-col gap-[10px]">
+          <p className="text-bad m-0 text-[13px]">{error}</p>
+          {requirements.length > 0 && (
+            <>
+              <p className="text-muted m-0 text-[13px]">The reverse proxy in front of it must:</p>
+              <ul className="text-dim m-0 list-disc pl-5 font-mono text-[11px] leading-[1.8]">
+                {requirements.map((r) => (
+                  <li key={r}>{r}</li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      )}
+      <div className="text-dim font-mono text-[12px]">
+        Enrollment tokens cannot be issued until this is set and reachable.
+      </div>
     </Card>
   );
 }
@@ -470,7 +551,7 @@ function IntervalField({
   onSaved: (s: FleetSettings) => void;
   onError: (message: string) => void;
 }) {
-  const stored = (settings[spec.key] as number | undefined) ?? spec.def;
+  const stored = settings.job_intervals?.[spec.key] ?? spec.def;
   // Reinitialized on every save via this component's `key` (see JobsCard),
   // so no effect is needed to resync it with the settings prop.
   const [raw, setRaw] = useState(String(stored));
@@ -488,7 +569,7 @@ function IntervalField({
     }
     setBusy(true);
     try {
-      onSaved(await fleet.setSetting(spec.key, seconds));
+      onSaved(await fleet.setJobInterval(spec.key, seconds));
     } catch (err) {
       onError(apiError(err, `Could not save the ${spec.label.toLowerCase()} interval.`));
     } finally {
@@ -636,7 +717,7 @@ function JobsCard({
           // the field with the new value as its initial state, instead of an
           // effect reaching back to resync local state after the fact.
           <IntervalField
-            key={`${spec.key}:${(settings[spec.key] as number | undefined) ?? spec.def}`}
+            key={`${spec.key}:${settings.job_intervals?.[spec.key] ?? spec.def}`}
             spec={spec}
             settings={settings}
             onSaved={onSaved}

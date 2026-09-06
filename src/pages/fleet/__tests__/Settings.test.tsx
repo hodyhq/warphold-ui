@@ -9,11 +9,13 @@ import type { Admin } from "../../../api/types";
 const settings = vi.fn();
 const setSetting = vi.fn();
 const setSettings = vi.fn();
+const setJobInterval = vi.fn();
 const smtpTest = vi.fn();
 const createJob = vi.fn();
 const admins = vi.fn();
 const inviteAdmin = vi.fn();
 const deleteAdmin = vi.fn();
+const setPublicURL = vi.fn();
 
 vi.mock(import("../../../api/fleet"), async (importOriginal) => ({
   ...(await importOriginal()),
@@ -21,11 +23,13 @@ vi.mock(import("../../../api/fleet"), async (importOriginal) => ({
     settings: () => settings(),
     setSetting: (key: string, value: unknown) => setSetting(key, value),
     setSettings: (patch: unknown) => setSettings(patch),
+    setJobInterval: (key: string, value: unknown) => setJobInterval(key, value),
     smtpTest: (to: string) => smtpTest(to),
     createJob: (kind: string, agentId?: string) => createJob(kind, agentId),
     admins: () => admins(),
     inviteAdmin: (email: string, password: string) => inviteAdmin(email, password),
     deleteAdmin: (id: number) => deleteAdmin(id),
+    setPublicURL: (url: string) => setPublicURL(url),
   } as unknown as typeof import("../../../api/fleet").fleet,
 }));
 
@@ -37,12 +41,16 @@ const ADMINS: Admin[] = [
 const BASE_SETTINGS = {
   fleet_name: "home-fleet",
   poll_interval: 300,
-  mirror_interval: 3_600,
-  verify_interval: 604_800,
-  test_restore_interval: 2_592_000,
-  maintenance_interval: 86_400,
-  stats_interval: 86_400,
-  digest_interval: 604_800,
+  public_url: "",
+  job_intervals: {
+    mirror_interval: 3_600,
+    verify_interval: 604_800,
+    test_restore_interval: 2_592_000,
+    maintenance_interval: 86_400,
+    reap_interval: 86_400,
+    stats_interval: 86_400,
+    digest_interval: 604_800,
+  },
   revoked_retention_days: 30,
   smtp_host: "",
   smtp_port: 2525,
@@ -54,10 +62,14 @@ const BASE_SETTINGS = {
 
 beforeEach(() => {
   settings.mockReset().mockResolvedValue(BASE_SETTINGS);
+  setPublicURL.mockReset().mockImplementation((url: string) => Promise.resolve({ ...BASE_SETTINGS, public_url: url }));
   setSetting
     .mockReset()
     .mockImplementation((key: string, value: unknown) => Promise.resolve({ ...BASE_SETTINGS, [key]: value }));
   setSettings.mockReset().mockImplementation((patch: object) => Promise.resolve({ ...BASE_SETTINGS, ...patch }));
+  setJobInterval.mockReset().mockImplementation((key: string, value: unknown) =>
+    Promise.resolve({ ...BASE_SETTINGS, job_intervals: { ...BASE_SETTINGS.job_intervals, [key]: value } }),
+  );
   smtpTest.mockReset().mockResolvedValue({ sent: true });
   createJob.mockReset().mockResolvedValue({ id: 1 });
   admins.mockReset().mockResolvedValue(ADMINS);
@@ -110,13 +122,13 @@ describe("Settings", () => {
     render(<Settings />);
 
     await userEvent.selectOptions(await screen.findByLabelText("Mirror"), "300");
-    await waitFor(() => expect(setSetting).toHaveBeenCalledWith("mirror_interval", 300));
+    await waitFor(() => expect(setJobInterval).toHaveBeenCalledWith("mirror_interval", 300));
 
     const raw = screen.getByLabelText("Maintenance in seconds");
     await userEvent.clear(raw);
     await userEvent.type(raw, "7200");
     await userEvent.click(within(raw.closest("form") as HTMLElement).getByRole("button", { name: /^set$/i }));
-    await waitFor(() => expect(setSetting).toHaveBeenCalledWith("maintenance_interval", 7200));
+    await waitFor(() => expect(setJobInterval).toHaveBeenCalledWith("maintenance_interval", 7200));
   });
 
   it("round-trips SMTP settings, sending the password only when it was typed", async () => {
@@ -200,5 +212,31 @@ describe("Settings", () => {
 
     expect(await within(dialog).findByRole("alert")).toHaveTextContent("cannot delete the last admin");
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("re-tests the public URL and prints the proxy checklist when the probe fails", async () => {
+    setPublicURL.mockRejectedValueOnce({
+      response: {
+        status: 400,
+        data: {
+          error: "https://fleet.example.com could not be reached from this server",
+          proxy_requirements: ["forward the Host header unchanged", "do not buffer request bodies"],
+        },
+      },
+    });
+    render(<Settings />);
+
+    const url = await screen.findByLabelText(/^url$/i);
+    await userEvent.type(url, "https://fleet.example.com");
+    await userEvent.click(screen.getByRole("button", { name: /test and save/i }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/could not be reached/i);
+    expect(alert).toHaveTextContent("forward the Host header unchanged");
+    expect(alert).toHaveTextContent("do not buffer request bodies");
+
+    await userEvent.click(screen.getByRole("button", { name: /test and save/i }));
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+    expect(setPublicURL).toHaveBeenLastCalledWith("https://fleet.example.com");
   });
 });

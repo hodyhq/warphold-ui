@@ -36,12 +36,13 @@ const EMPTY_OVERVIEW: Overview = {
   dedup_ratio: null,
   last24h: { completed: 0, failed: 0, buckets: [] },
   latest_failure: null,
+  offsite: { targets_with_mirror: 0, stale_devices: 0, unknown: false },
   devices: [],
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockedSettings.mockResolvedValue({ fleet_name: "home-fleet", poll_interval: 300 });
+  mockedSettings.mockResolvedValue({ fleet_name: "home-fleet", poll_interval: 300, public_url: "" });
   mockedOverview.mockResolvedValue(EMPTY_OVERVIEW);
   vi.mocked(engine.localInfo).mockResolvedValue({ name: "laptop-1", group: "" });
   vi.mocked(engine.sources).mockResolvedValue({

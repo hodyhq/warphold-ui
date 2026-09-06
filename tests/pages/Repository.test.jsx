@@ -357,3 +357,20 @@ describe("Repository component - CLI equivalent", () => {
     });
   });
 });
+
+describe("Repository component - no Fleet upsell", () => {
+  test("does not offer to turn this machine into a Fleet server", async () => {
+    axiosMock.onGet("/api/v1/repo/status").reply(200, connectedStatus);
+
+    renderWithContext();
+
+    await waitFor(() => {
+      expect(screen.getByText("Connected To Repository")).toBeInTheDocument();
+    });
+
+    // The offer moved to Settings, as a link to the Fleet install docs: this
+    // app never becomes the Fleet server itself.
+    expect(screen.queryByText(/turn this machine into a fleet server/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /activate fleet/i })).not.toBeInTheDocument();
+  });
+});

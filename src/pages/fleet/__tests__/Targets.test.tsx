@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom";
-import { Targets } from "../Targets";
+import { storageChips, Targets } from "../Targets";
 import type { AgentOut, Group, Target } from "../../../api/types";
 
 const targets = vi.fn();
@@ -148,5 +148,118 @@ describe("Targets", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: /add target/i }));
 
     expect(await screen.findByRole("status")).toHaveTextContent(/object lock/i);
+  });
+});
+
+describe("offsite state on a target row", () => {
+  const NOW = Date.parse("2026-09-02T12:00:00Z");
+  const hosted = (over: Partial<Target> = {}): Target => ({
+    id: 9,
+    name: "fleet-disk",
+    kind: "hosted",
+    storage_mode: "disk",
+    path: "/srv/warphold/hosted",
+    ...over,
+  });
+
+  it("says nothing about offsite when the target keeps no mirror", () => {
+    expect(storageChips(hosted(), NOW)).toEqual([{ text: "local ✓", tone: "good" }]);
+    expect(storageChips({ id: 2, name: "tank", kind: "filesystem", path: "/tank" }, NOW)).toEqual([]);
+  });
+
+  it("gives a mirroring filesystem target the same local chip as a hosted one", () => {
+    const chips = storageChips(
+      {
+        id: 2,
+        name: "tank",
+        kind: "filesystem",
+        path: "/tank",
+        mirror_kind: "b2",
+        mirror_lock_verified_at: "2026-09-01T00:00:00Z",
+        mirrored_at: "2026-09-02T10:00:00Z",
+      },
+      NOW,
+    );
+    expect(chips).toEqual([
+      { text: "local ✓", tone: "good" },
+      { text: "offsite ✓ 2 h ago", tone: "good" },
+    ]);
+  });
+
+  it("calls a verified mirror that has never run bad, not stale", () => {
+    // No mirrored_at: there is no offsite copy to have gone old.
+    expect(
+      storageChips(hosted({ mirror_kind: "b2", mirror_lock_verified_at: "2026-09-01T00:00:00Z" }), NOW)[1],
+    ).toEqual({ text: "offsite never run", tone: "bad" });
+  });
+
+  it("shows the age of the newest mirror when it is current", () => {
+    const chips = storageChips(
+      hosted({
+        mirror_kind: "b2",
+        mirror_lock_verified_at: "2026-09-01T00:00:00Z",
+        mirrored_at: "2026-09-02T10:00:00Z",
+      }),
+      NOW,
+    );
+    expect(chips).toEqual([
+      { text: "local ✓", tone: "good" },
+      { text: "offsite ✓ 2 h ago", tone: "good" },
+    ]);
+  });
+
+  it("flips to a warning exactly when the server calls the mirror stale", () => {
+    const t = hosted({
+      mirror_kind: "b2",
+      mirror_lock_verified_at: "2026-09-01T00:00:00Z",
+      mirrored_at: "2026-09-02T10:00:00Z",
+    });
+    // Same timestamp either side of the boundary: staleness is the server's
+    // 3x-interval call (see fleet/api mirrorStale), never a second one here.
+    expect(storageChips({ ...t, mirror_stale: false }, NOW)[1]).toEqual({ text: "offsite ✓ 2 h ago", tone: "good" });
+    expect(storageChips({ ...t, mirror_stale: true }, NOW)[1]).toEqual({ text: "offsite stale", tone: "warn" });
+  });
+
+  it("calls an unverified mirror bad, ahead of any staleness", () => {
+    expect(
+      storageChips(hosted({ mirror_kind: "b2", mirrored_at: "2026-09-02T10:00:00Z", mirror_stale: true }), NOW)[1],
+    ).toEqual({
+      text: "offsite unverified",
+      tone: "bad",
+    });
+  });
+
+  it("says cloud-direct once, with its Object Lock", () => {
+    const cloud = hosted({ storage_mode: "cloud", bucket: "fleet", object_lock_verified_at: "2026-09-01T00:00:00Z" });
+    expect(storageChips(cloud, NOW)).toEqual([{ text: "cloud ✓ (Object Lock)", tone: "good" }]);
+    expect(storageChips({ ...cloud, object_lock_verified_at: null }, NOW)).toEqual([{ text: "cloud ✓", tone: "good" }]);
+  });
+
+  it("renders the chips on the card", async () => {
+    targets.mockResolvedValue([
+      hosted({
+        mirror_kind: "b2",
+        mirror_bucket: "hody-offsite",
+        mirror_lock_verified_at: "2026-09-01T00:00:00Z",
+        mirrored_at: "2026-08-30T00:00:00Z",
+        mirror_stale: true,
+      }),
+    ]);
+    render(<Targets />);
+
+    const card = await screen.findByTestId("target-9");
+    expect(card).toHaveTextContent("Fleet disk · /srv/warphold/hosted");
+    expect(card).toHaveTextContent("local ✓");
+    expect(card).toHaveTextContent("offsite stale");
+    expect(card).toHaveTextContent("Mirrored to B2 · hody-offsite");
+  });
+
+  it("labels a cloud-direct hosted target as writing straight to the bucket, not 'on this server'", async () => {
+    targets.mockResolvedValue([hosted({ storage_mode: "cloud", bucket: "fleet", id: 9 })]);
+    render(<Targets />);
+
+    const card = await screen.findByTestId("target-9");
+    expect(card).toHaveTextContent("devices write straight to the bucket");
+    expect(card).not.toHaveTextContent("on this server");
   });
 });

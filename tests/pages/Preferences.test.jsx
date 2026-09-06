@@ -57,3 +57,11 @@ describe("Test byte representation", () => {
     expect(theme).toHaveLength(2);
   });
 });
+
+describe("Fleet documentation link", () => {
+  it("points at the Fleet install docs", () => {
+    const link = screen.getByRole("link", { name: /how to install fleet/i });
+    expect(link.getAttribute("href")).toBe("https://github.com/hodyhq/warphold#fleet");
+    expect(screen.getByTestId("fleet-docs")).toBeTruthy();
+  });
+});
