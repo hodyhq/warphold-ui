@@ -12,6 +12,8 @@ const groups = vi.fn();
 const templates = vi.fn();
 const agentCommand = vi.fn();
 const revokeAgent = vi.fn();
+const ackKit = vi.fn();
+const regenerateKit = vi.fn();
 
 vi.mock(import("../../../api/fleet"), async (importOriginal) => ({
   ...(await importOriginal()),
@@ -21,6 +23,9 @@ vi.mock(import("../../../api/fleet"), async (importOriginal) => ({
     templates: () => templates(),
     agentCommand: (id: string, kind: string, source?: string) => agentCommand(id, kind, source),
     revokeAgent: (id: string) => revokeAgent(id),
+    kitURL: (id: string) => `/api/v1/fleet/agents/${id}/kit`,
+    ackKit: (id: string) => ackKit(id),
+    regenerateKit: (id: string) => regenerateKit(id),
   } as unknown as typeof import("../../../api/fleet").fleet,
 }));
 
@@ -61,6 +66,7 @@ const DETAIL: AgentDetail = {
   last_seen_at: hoursAgo(1),
   revoked_at: null,
   health: "red",
+  kit_acked_at: "2026-08-02T00:00:00Z",
   reports: [
     report({
       id: 3,
@@ -100,6 +106,8 @@ beforeEach(() => {
   templates.mockReset().mockResolvedValue(TEMPLATES);
   agentCommand.mockReset().mockResolvedValue({ id: 1 });
   revokeAgent.mockReset().mockResolvedValue(undefined);
+  ackKit.mockReset().mockResolvedValue(undefined);
+  regenerateKit.mockReset().mockResolvedValue(undefined);
 });
 
 describe("Device", () => {
@@ -141,11 +149,79 @@ describe("Device", () => {
     expect(await screen.findByRole("status")).toHaveTextContent(/snapshot/i);
   });
 
-  it("keeps Verify and Recovery kit disabled until a later plan", async () => {
+  it("keeps Verify disabled until a later plan", async () => {
     renderDevice();
 
     expect(await screen.findByRole("button", { name: /verify/i })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /recovery kit/i })).toBeDisabled();
+  });
+
+  it("nags until the recovery kit is acknowledged, and clears without a reload", async () => {
+    agent.mockResolvedValue({ ...DETAIL, kit_acked_at: null });
+    renderDevice();
+
+    expect(await screen.findByTestId("kit-banner")).toHaveTextContent(/no one has confirmed holding/i);
+
+    // The poll would answer with the stale un-acked device; the banner has to
+    // go on the ack itself, not on the next refetch.
+    agent.mockResolvedValue({ ...DETAIL, kit_acked_at: null });
+    await userEvent.click(screen.getByRole("button", { name: /mark as saved/i }));
+
+    expect(ackKit).toHaveBeenCalledWith("ag_nuc");
+    await waitFor(() => expect(screen.queryByTestId("kit-banner")).not.toBeInTheDocument());
+    expect(await screen.findByRole("status")).toHaveTextContent(/marked as saved/i);
+  });
+
+  it("hides the banner for a device whose kit was already acknowledged", async () => {
+    renderDevice();
+
+    expect(await screen.findByRole("heading", { level: 1 })).toBeInTheDocument();
+    expect(screen.queryByTestId("kit-banner")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /mark as saved/i })).not.toBeInTheDocument();
+  });
+
+  it("opens the recovery kit in a new tab", async () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    renderDevice();
+
+    await userEvent.click(await screen.findByRole("button", { name: /open recovery kit/i }));
+    expect(open).toHaveBeenCalledWith("/api/v1/fleet/agents/ag_nuc/kit", "_blank", "noopener,noreferrer");
+    open.mockRestore();
+  });
+
+  it("warns that a hosted device's printed key stops working before it regenerates the kit", async () => {
+    renderDevice();
+
+    await userEvent.click(await screen.findByRole("button", { name: /regenerate kit/i }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent(/for devices on a hosted target, the read-only key on the current kit stops working immediately/i);
+    expect(regenerateKit).not.toHaveBeenCalled();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: /cancel/i }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(regenerateKit).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: /regenerate kit/i }));
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: /regenerate kit/i }));
+    expect(regenerateKit).toHaveBeenCalledWith("ag_nuc");
+    expect(await screen.findByRole("status")).toHaveTextContent(/regenerated/i);
+  });
+
+  it("shows the server's error and leaves the kit unchanged when regenerate is refused for a non-hosted target", async () => {
+    regenerateKit.mockRejectedValueOnce(
+      Object.assign(new Error("refused"), {
+        response: { status: 409, data: { error: "this target has no per-device read-only key to regenerate" } },
+      }),
+    );
+    renderDevice();
+
+    await userEvent.click(await screen.findByRole("button", { name: /regenerate kit/i }));
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: /regenerate kit/i }));
+
+    const status = await screen.findByRole("status");
+    expect(status).toHaveTextContent(/this target has no per-device read-only key to regenerate/i);
+    expect(status).not.toHaveTextContent(/regenerated/i);
+    // The device's own ack state is untouched by a failed regenerate.
+    expect(screen.queryByTestId("kit-banner")).not.toBeInTheDocument();
   });
 
   it("revokes only after the device name is typed", async () => {

@@ -2,13 +2,11 @@ import React from "react";
 import clsx from "clsx";
 import { Tone, toneBorder, toneText } from "./tone";
 
-export interface PillProps {
+export interface PillProps extends React.HTMLAttributes<HTMLSpanElement> {
   tone?: Tone | "ink";
-  children: React.ReactNode;
-  className?: string;
 }
 
-export function Pill({ tone = "ink", children, className }: PillProps) {
+export function Pill({ tone = "ink", className, ...props }: PillProps) {
   return (
     <span
       className={clsx(
@@ -17,8 +15,7 @@ export function Pill({ tone = "ink", children, className }: PillProps) {
         toneText[tone],
         className,
       )}
-    >
-      {children}
-    </span>
+      {...props}
+    />
   );
 }
