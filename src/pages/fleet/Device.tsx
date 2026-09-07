@@ -301,7 +301,13 @@ export function Device() {
   const regenerateKit = useCallback(() => {
     setRegenerating(false);
     fleet.regenerateKit(id).then(
-      () => setToast({ message: "Recovery kit regenerated; open it again to print the new key.", bad: false }),
+      () => {
+        // The new key hasn't been printed or saved yet, so the ack from the
+        // retired kit no longer counts - bring the banner straight back
+        // rather than waiting on the next 30 s poll.
+        setDetail((d) => (d ? { ...d, kit_acked_at: null } : d));
+        setToast({ message: "Recovery kit regenerated; open it again to print the new key.", bad: false });
+      },
       (err: unknown) => setToast({ message: apiError(err, "Could not regenerate the recovery kit."), bad: true }),
     );
   }, [id]);

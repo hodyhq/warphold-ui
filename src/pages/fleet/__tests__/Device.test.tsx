@@ -240,6 +240,20 @@ describe("Device", () => {
     expect(await screen.findByRole("status")).toHaveTextContent(/regenerated/i);
   });
 
+  it("brings the ack banner back once a regenerate succeeds", async () => {
+    renderDevice();
+
+    expect(screen.queryByTestId("kit-banner")).not.toBeInTheDocument();
+
+    await userEvent.click(await screen.findByRole("button", { name: /regenerate kit/i }));
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: /regenerate kit/i }));
+    await screen.findByRole("status");
+
+    // The old kit's ack no longer covers the new key - the banner has to come
+    // straight back, not wait on the next 30 s poll.
+    expect(await screen.findByTestId("kit-banner")).toHaveTextContent(/no one has confirmed holding/i);
+  });
+
   it("shows the server's error and leaves the kit unchanged when regenerate is refused for a non-hosted target", async () => {
     regenerateKit.mockRejectedValueOnce(
       Object.assign(new Error("refused"), {
