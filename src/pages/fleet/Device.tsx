@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import clsx from "clsx";
 import {
@@ -193,16 +193,23 @@ export function Device() {
   const [typedName, setTypedName] = useState("");
   const [toast, setToast] = useState<{ message: string; bad: boolean } | null>(null);
 
+  // Bumped by ackKit/regenerateKit's optimistic update. A load already in
+  // flight when one of those lands started before it and knows nothing about
+  // it - answering with the server's now-stale kit_acked_at - so it must be
+  // dropped rather than clobbering the fresher local state.
+  const kitMutationRef = useRef(0);
+
   useEffect(() => {
     let live = true;
     function load() {
+      const startedAfter = kitMutationRef.current;
       // The group names the device and picks its template; both are small
       // list endpoints, so this is four calls per poll, not one per source.
       // A jobs-request failure must not blank the whole screen - the table
       // just stays empty until the next poll.
       Promise.all([fleet.agent(id), fleet.groups(), fleet.templates(), fleet.agentJobs(id).catch(() => [] as Job[])]).then(
         ([a, gs, ts, js]) => {
-          if (!live) {
+          if (!live || kitMutationRef.current !== startedAfter) {
             return;
           }
           const group = gs.find((g) => g.id === a.group_id);
@@ -287,10 +294,13 @@ export function Device() {
   const openKit = useCallback(() => window.open(fleet.kitURL(id), "_blank", "noopener,noreferrer"), [id]);
 
   // Optimistic: the banner and the list marker key off kit_acked_at, and the
-  // 30 s poll replaces this guess with the server's timestamp either way.
+  // 30 s poll replaces this guess with the server's timestamp either way -
+  // except a poll already in flight when the guess lands, which knows
+  // nothing about it and must not clobber it (kitMutationRef above).
   const ackKit = useCallback(() => {
     fleet.ackKit(id).then(
       () => {
+        kitMutationRef.current += 1;
         setDetail((d) => (d ? { ...d, kit_acked_at: new Date().toISOString() } : d));
         setToast({ message: "Recovery kit marked as saved.", bad: false });
       },
@@ -304,7 +314,11 @@ export function Device() {
       () => {
         // The new key hasn't been printed or saved yet, so the ack from the
         // retired kit no longer counts - bring the banner straight back
-        // rather than waiting on the next 30 s poll.
+        // rather than waiting on the next 30 s poll. The server itself never
+        // clears kit_acked_at on regenerate, so a fresh fetch right now would
+        // just restore it - kitMutationRef only blocks a load already in
+        // flight; it does not trigger a new one.
+        kitMutationRef.current += 1;
         setDetail((d) => (d ? { ...d, kit_acked_at: null } : d));
         setToast({ message: "Recovery kit regenerated; open it again to print the new key.", bad: false });
       },

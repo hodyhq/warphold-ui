@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -252,6 +252,48 @@ describe("Device", () => {
     // The old kit's ack no longer covers the new key - the banner has to come
     // straight back, not wait on the next 30 s poll.
     expect(await screen.findByTestId("kit-banner")).toHaveTextContent(/no one has confirmed holding/i);
+  });
+
+  it("does not let a poll that started before a regenerate clobber the reset banner when it resolves late", async () => {
+    // Only the poll's setInterval needs faking - leave setTimeout/rAF/Date
+    // real so userEvent's own click plumbing behaves normally.
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const user = userEvent.setup();
+    try {
+      // Call 1: the initial mount load - kit already acked, banner hidden.
+      agent.mockResolvedValueOnce(DETAIL);
+      // Call 2: the 30 s poll. It is in flight (unresolved) when the
+      // regenerate below fires, and only settles - with stale, still-acked
+      // data - after the optimistic reset has already landed. The server
+      // never clears kit_acked_at on regenerate, so this is exactly what a
+      // real poll would answer with; nothing else re-fetches after the
+      // mutation, so no third call is queued.
+      let resolveStalePoll: ((v: typeof DETAIL) => void) | undefined;
+      agent.mockImplementationOnce(() => new Promise((resolve) => (resolveStalePoll = resolve)));
+
+      renderDevice();
+      await act(() => vi.advanceTimersByTimeAsync(0)); // let the initial mount load settle and render
+      expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
+      expect(screen.queryByTestId("kit-banner")).not.toBeInTheDocument();
+
+      await act(() => vi.advanceTimersByTimeAsync(30_000)); // fires the poll (call 2, now pending)
+
+      await user.click(screen.getByRole("button", { name: /regenerate kit/i }));
+      await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /regenerate kit/i }));
+      await screen.findByRole("status");
+      expect(screen.getByTestId("kit-banner")).toBeInTheDocument();
+      expect(agent).toHaveBeenCalledTimes(2); // no extra fetch triggered by the mutation itself
+
+      // The stale poll (call 2) finally resolves with old, acked data - it
+      // started before the reset and knows nothing about it, so it must be
+      // ignored rather than clobbering the banner.
+      resolveStalePoll?.(DETAIL);
+      await act(() => vi.advanceTimersByTimeAsync(0));
+
+      expect(screen.getByTestId("kit-banner")).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("shows the server's error and leaves the kit unchanged when regenerate is refused for a non-hosted target", async () => {
