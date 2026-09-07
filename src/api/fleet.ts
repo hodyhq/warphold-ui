@@ -9,6 +9,8 @@ import type {
   CreatedToken,
   FleetStatus,
   Group,
+  Job,
+  JobIntervals,
   Overview,
   Settings,
   Target,
@@ -30,6 +32,21 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 /** Commands `handleAgentCommand` accepts. */
 export type CommandKind = "snapshot-now" | "pause" | "resume" | "verify";
+
+/**
+ * Kinds `handleJobCreate` accepts (`fleet/jobs.KindList`). "stats" and
+ * "digest" are Task 31's fleet-wide jobs: queuing them 400s ("kind must be
+ * one of ...") until that server-side support ships alongside this screen.
+ */
+export type JobKind = "verify" | "test-restore" | "maintenance" | "mirror" | "reap" | "stats" | "digest";
+
+/**
+ * `Settings` minus the fields the server only ever sends back: `job_intervals`
+ * (write through `setJobInterval`, which takes the flat key `PUT` actually
+ * wants) and `smtp_password_set` (a read-only flag; the password itself is
+ * written as `smtp_password`, which isn't part of `Settings` at all).
+ */
+type SettingsWrite = Omit<Settings, "job_intervals" | "smtp_password_set">;
 
 export const fleetClient = axios.create({
   baseURL: "/api/v1/fleet",
@@ -140,6 +157,14 @@ export const fleet = {
     await fleetClient.post(`/agents/${encodeURIComponent(id)}/revoke`);
   },
 
+  /** Bounded to the 50 most recent rows (`jobsPerAgent`, admin_jobs.go). */
+  agentJobs: (id: string) => get<Job[]>(`/agents/${encodeURIComponent(id)}/jobs`),
+  /** `agentId` omitted enqueues a fleet-wide job (mirror, digest, stats, reap). */
+  async createJob(kind: JobKind, agentId?: string): Promise<Created> {
+    const r = await fleetClient.post<Created>("/jobs", agentId ? { kind, agent_id: agentId } : { kind });
+    return r.data;
+  },
+
   groups: () => get<Group[]>("/groups"),
   async createGroup(name: string, targetID: number, templateID: number): Promise<Created> {
     const r = await fleetClient.post<Created>("/groups", {
@@ -181,10 +206,31 @@ export const fleet = {
   /**
    * PUT takes a partial object and answers with the merged result, so one
    * changed field never has to be sent alongside the values it did not touch.
+   * `SettingsWrite` excludes the response-only fields (`job_intervals` goes
+   * through `setJobInterval`; `smtp_password_set` is never sent, only read).
    */
-  async setSetting<K extends keyof Settings>(key: K, value: Settings[K]): Promise<Settings> {
+  async setSetting<K extends keyof SettingsWrite>(key: K, value: SettingsWrite[K]): Promise<Settings> {
     return (await fleetClient.put<Settings>("/settings", { [key]: value })).data;
   },
+  /** Same PUT, several keys at once - the SMTP form saves in one round trip. */
+  async setSettings(patch: Partial<SettingsWrite> & { smtp_password?: string | null }): Promise<Settings> {
+    return (await fleetClient.put<Settings>("/settings", patch)).data;
+  },
+  /**
+   * A job-interval key: unlike the rest of `Settings`, the PUT body takes it
+   * flat (`mirror_interval`, ...) while the response nests it under
+   * `job_intervals` (`admin_settings.go`'s `settingsOut`), so it cannot share
+   * `setSetting`'s `keyof Settings` constraint.
+   */
+  async setJobInterval<K extends keyof JobIntervals>(key: K, value: JobIntervals[K]): Promise<Settings> {
+    return (await fleetClient.put<Settings>("/settings", { [key]: value })).data;
+  },
+
+  /** POST /settings/smtp/test: sends one message with the stored settings. */
+  async smtpTest(to: string): Promise<{ sent: boolean }> {
+    return (await fleetClient.post<{ sent: boolean }>("/settings/smtp/test", { to })).data;
+  },
+
   /**
    * Store the public URL, having the server prove it reaches this fleet first:
    * it fetches `<url>/api/v1/fleet/status` through the proxy and TLS and
