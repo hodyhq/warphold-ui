@@ -8,6 +8,10 @@ import type { Admin } from "../../../api/types";
 
 const settings = vi.fn();
 const setSetting = vi.fn();
+const setSettings = vi.fn();
+const setJobInterval = vi.fn();
+const smtpTest = vi.fn();
+const createJob = vi.fn();
 const admins = vi.fn();
 const inviteAdmin = vi.fn();
 const deleteAdmin = vi.fn();
@@ -18,6 +22,10 @@ vi.mock(import("../../../api/fleet"), async (importOriginal) => ({
   fleet: {
     settings: () => settings(),
     setSetting: (key: string, value: unknown) => setSetting(key, value),
+    setSettings: (patch: unknown) => setSettings(patch),
+    setJobInterval: (key: string, value: unknown) => setJobInterval(key, value),
+    smtpTest: (to: string) => smtpTest(to),
+    createJob: (kind: string, agentId?: string) => createJob(kind, agentId),
     admins: () => admins(),
     inviteAdmin: (email: string, password: string) => inviteAdmin(email, password),
     deleteAdmin: (id: number) => deleteAdmin(id),
@@ -30,18 +38,40 @@ const ADMINS: Admin[] = [
   { id: 2, email: "second@example.com", role: "admin", created_at: "2026-08-02T00:00:00Z" },
 ];
 
+const BASE_SETTINGS = {
+  fleet_name: "home-fleet",
+  poll_interval: 300,
+  public_url: "",
+  job_intervals: {
+    mirror_interval: 3_600,
+    verify_interval: 604_800,
+    test_restore_interval: 2_592_000,
+    maintenance_interval: 86_400,
+    reap_interval: 86_400,
+    stats_interval: 86_400,
+    digest_interval: 604_800,
+  },
+  revoked_retention_days: 30,
+  smtp_host: "",
+  smtp_port: 2525,
+  smtp_username: "",
+  smtp_from: "",
+  smtp_tls: true,
+  smtp_password_set: false,
+};
+
 beforeEach(() => {
-  settings.mockReset().mockResolvedValue({ fleet_name: "home-fleet", poll_interval: 300, public_url: "" });
-  setPublicURL
-    .mockReset()
-    .mockImplementation((url: string) =>
-      Promise.resolve({ fleet_name: "home-fleet", poll_interval: 300, public_url: url }),
-    );
+  settings.mockReset().mockResolvedValue(BASE_SETTINGS);
+  setPublicURL.mockReset().mockImplementation((url: string) => Promise.resolve({ ...BASE_SETTINGS, public_url: url }));
   setSetting
     .mockReset()
-    .mockImplementation((key: string, value: unknown) =>
-      Promise.resolve({ fleet_name: "home-fleet", poll_interval: 300, [key]: value }),
-    );
+    .mockImplementation((key: string, value: unknown) => Promise.resolve({ ...BASE_SETTINGS, [key]: value }));
+  setSettings.mockReset().mockImplementation((patch: object) => Promise.resolve({ ...BASE_SETTINGS, ...patch }));
+  setJobInterval.mockReset().mockImplementation((key: string, value: unknown) =>
+    Promise.resolve({ ...BASE_SETTINGS, job_intervals: { ...BASE_SETTINGS.job_intervals, [key]: value } }),
+  );
+  smtpTest.mockReset().mockResolvedValue({ sent: true });
+  createJob.mockReset().mockResolvedValue({ id: 1 });
   admins.mockReset().mockResolvedValue(ADMINS);
   inviteAdmin.mockReset().mockResolvedValue({ id: 3 });
   deleteAdmin.mockReset().mockResolvedValue(undefined);
@@ -51,21 +81,23 @@ describe("Settings", () => {
   it("renders the live settings and the cards that are still waiting", async () => {
     render(<Settings />);
 
-    expect(await screen.findByLabelText(/name/i)).toHaveValue("home-fleet");
+    expect(await screen.findByLabelText(/^name$/i)).toHaveValue("home-fleet");
     expect(screen.getByLabelText(/poll interval/i)).toHaveValue("300");
     expect(screen.getByLabelText(/health thresholds/i)).toHaveValue("stale after 26 h · failing after 7 d");
     expect(screen.getByText("admin@example.com")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /change passphrase/i })).toBeDisabled();
-    expect(screen.getByText(/One email a week/i)).toBeInTheDocument();
+    expect(screen.getByText(/background jobs/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /send digest now/i })).toBeInTheDocument();
+    expect(screen.getByText(/^smtp$/i)).toBeInTheDocument();
   });
 
   it("saves the fleet name through the settings endpoint", async () => {
     render(<Settings />);
 
-    const name = await screen.findByLabelText(/name/i);
+    const name = await screen.findByLabelText(/^name$/i);
     await userEvent.clear(name);
     await userEvent.type(name, "  family-fleet  ");
-    await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    await userEvent.click(within(name.closest("form") as HTMLElement).getByRole("button", { name: /^save$/i }));
 
     await waitFor(() => expect(setSetting).toHaveBeenCalledWith("fleet_name", "family-fleet"));
   });
@@ -84,6 +116,62 @@ describe("Settings", () => {
 
     expect(await screen.findByLabelText(/poll interval/i)).toHaveValue("45");
     expect(screen.getByRole("option", { name: "45 seconds" })).toBeInTheDocument();
+  });
+
+  it("round-trips a background-job interval through the settings endpoint", async () => {
+    render(<Settings />);
+
+    await userEvent.selectOptions(await screen.findByLabelText("Mirror"), "300");
+    await waitFor(() => expect(setJobInterval).toHaveBeenCalledWith("mirror_interval", 300));
+
+    const raw = screen.getByLabelText("Maintenance in seconds");
+    await userEvent.clear(raw);
+    await userEvent.type(raw, "7200");
+    await userEvent.click(within(raw.closest("form") as HTMLElement).getByRole("button", { name: /^set$/i }));
+    await waitFor(() => expect(setJobInterval).toHaveBeenCalledWith("maintenance_interval", 7200));
+  });
+
+  it("round-trips SMTP settings, sending the password only when it was typed", async () => {
+    render(<Settings />);
+
+    await screen.findByText(/^smtp$/i);
+    const card = within(screen.getByText(/^smtp$/i).closest("div") as HTMLElement);
+
+    await userEvent.type(card.getByLabelText(/host/i), "smtp.example.com");
+    await userEvent.type(card.getByLabelText(/^username$/i), "hody");
+    await userEvent.type(card.getByLabelText(/from address/i), "fleet@hody.dev");
+    await userEvent.click(card.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() =>
+      expect(setSettings).toHaveBeenCalledWith({
+        smtp_host: "smtp.example.com",
+        smtp_port: 2525,
+        smtp_username: "hody",
+        smtp_from: "fleet@hody.dev",
+        smtp_tls: true,
+      }),
+    );
+
+    setSettings.mockClear();
+    await userEvent.type(card.getByLabelText(/^password$/i), "s3cret");
+    await userEvent.click(card.getByRole("button", { name: /^save$/i }));
+    await waitFor(() =>
+      expect(setSettings).toHaveBeenCalledWith(expect.objectContaining({ smtp_password: "s3cret" })),
+    );
+  });
+
+  it("shows the result of a test-send", async () => {
+    render(<Settings />);
+
+    await userEvent.type(await screen.findByLabelText(/send test email to/i), "hody@hody.dev");
+    await userEvent.click(screen.getByRole("button", { name: /send test email/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/sent/i);
+    expect(smtpTest).toHaveBeenCalledWith("hody@hody.dev");
+
+    smtpTest.mockRejectedValueOnce({ response: { status: 502, data: { error: "smtp: dial tcp: timeout" } } });
+    await userEvent.click(screen.getByRole("button", { name: /send test email/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/timeout/i);
   });
 
   it("invites an admin", async () => {
