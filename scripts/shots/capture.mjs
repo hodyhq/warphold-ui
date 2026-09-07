@@ -112,9 +112,10 @@ async function main() {
       "--no-first-run",
       "--no-default-browser-check",
       "--hide-scrollbars",
-      // The plan's origins are generic names so no loopback literal is baked
-      // into a screenshot; nothing leaves this machine.
-      "--host-resolver-rules=MAP fleet.example.com 127.0.0.1,MAP backup.example.com 127.0.0.1",
+      // Only the single-machine app's origin is a fake name (nothing there
+      // needs to match a browser Origin header); Fleet's two origins are
+      // loopback names and need no mapping. Nothing leaves this machine.
+      "--host-resolver-rules=MAP backup.example.com 127.0.0.1",
       "--force-color-profile=srgb",
       "--force-device-scale-factor=1",
       "--disable-lcd-text",
@@ -124,6 +125,14 @@ async function main() {
   );
   const cdp = await CDP.connect(await endpoint(port));
   const written = [];
+  // Every new target shares one browser context (no browserContextId is
+  // passed to Target.createTarget), so a cookie set on one target is already
+  // there on the next: signing in again per screen/viewport just spends the
+  // login rate limiter's budget (6/minute/IP - fleet/api/server.go) for
+  // nothing, and a plan with enough auth'd screens burns through it before
+  // the run is done. One sign-in per auth kind is all the shared cookie jar
+  // needs.
+  const signedIn = new Set();
   try {
     for (const screen of plan.screens) {
       if (only ? screen.name !== only : screen.oneShot) {
@@ -143,7 +152,7 @@ async function main() {
           // The session cookie is set by calling the API from the page's own
           // origin - cheaper and steadier than typing into the login form,
           // and it is the same request the form makes.
-          if (screen.auth) {
+          if (screen.auth && !signedIn.has(screen.auth)) {
             await cdp.send("Page.navigate", { url: new URL("/", screen.url).href }, sessionId);
             await sleep(400);
             const signIn = await cdp.send(
@@ -161,6 +170,7 @@ async function main() {
                 `${screen.name}: sign-in fetch failed: ${signIn.exceptionDetails?.exception?.description ?? `status ${status}`}`,
               );
             }
+            signedIn.add(screen.auth);
           }
           await cdp.send("Page.navigate", { url: screen.url }, sessionId);
           await sleep(screen.settleMs ?? 1200);

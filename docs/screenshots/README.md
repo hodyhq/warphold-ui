@@ -60,16 +60,19 @@ server answers (`src/mode.ts`):
 
 | Origin                    | What it is                                                            |
 | ------------------------- | --------------------------------------------------------------------- |
-| `fleet.example.com:5411`  | the seeded Fleet server                                               |
-| `fleet.example.com:5412`  | a second Fleet server, deliberately **not** activated, for the wizard |
+| `localhost:5411`          | the seeded Fleet server                                               |
+| `localhost:5412`          | a second Fleet server, deliberately **not** activated, for the wizard |
 | `backup.example.com:5413` | the single-machine app                                                |
 | `localhost:5413`          | the same server under a loopback name, which is the agent UI          |
 
-The two `example.com` names are generic on purpose: the activation wizard's last
-step prints an enrollment command built from the origin the browser is on, and a
-loopback literal there would be baked into a README image. `capture.mjs` maps
-them onto loopback with Chrome's own `--host-resolver-rules`; for the MCP driver,
-add both names to `/etc/hosts` first.
+Both Fleet origins are loopback names, not fake domains: Fleet's own `public_url`
+(set at seed time for the first server, and by the wizard itself for the second)
+must be `https://` or a loopback host, and once it is set every admin call is
+checked against it, so it has to equal the origin the browser is actually on - a
+`fleet.example.com` cannot satisfy both. The single-machine app carries no such
+requirement, so it keeps the generic `backup.example.com`; `capture.mjs` maps
+that one name onto loopback with Chrome's own `--host-resolver-rules`. For the
+MCP driver, add it to `/etc/hosts` first.
 
 `scripts/shots/serve.mjs` serves the built bundle and proxies `/api`. For the
 single-machine origins it stands in for the two differences between an ordinary

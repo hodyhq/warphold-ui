@@ -76,7 +76,7 @@ describe("Targets", () => {
     const fs = screen.getByTestId("target-2");
     expect(fs).toHaveTextContent("Filesystem · /tank/warphold");
     expect(fs).toHaveTextContent("Local");
-    expect(fs).toHaveTextContent("No immutability");
+    expect(fs).toHaveTextContent("No offsite copy yet");
   });
 
   it("creates a filesystem target from the path alone", async () => {
