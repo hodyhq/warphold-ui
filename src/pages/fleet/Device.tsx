@@ -240,15 +240,22 @@ export function Device() {
   // A fleet-side job (verify, test restore, maintenance), not an agent
   // command: it runs on the server against this device's repository, and
   // shows up in the Jobs table below rather than waiting for a check-in.
+  // jobBusy disables all three buttons while one request is in flight, so a
+  // double click cannot queue the same job twice.
+  const [jobBusy, setJobBusy] = useState(false);
   const runJob = useCallback(
     (kind: JobKind, label: string) => {
-      fleet.createJob(kind, id).then(
-        () => {
-          setToast({ message: `${label} queued.`, bad: false });
-          setAttempt((n) => n + 1);
-        },
-        (err: unknown) => setToast({ message: apiError(err, `Could not queue ${label.toLowerCase()}.`), bad: true }),
-      );
+      setJobBusy(true);
+      fleet
+        .createJob(kind, id)
+        .then(
+          () => {
+            setToast({ message: `${label} queued.`, bad: false });
+            setAttempt((n) => n + 1);
+          },
+          (err: unknown) => setToast({ message: apiError(err, `Could not queue ${label.toLowerCase()}.`), bad: true }),
+        )
+        .finally(() => setJobBusy(false));
     },
     [id],
   );
@@ -408,13 +415,13 @@ export function Device() {
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line-strong pb-[6px]">
           <Eyebrow>Jobs</Eyebrow>
           <div className="flex flex-wrap gap-2">
-            <Button disabled={revoked} onClick={() => runJob("verify", "Verify")}>
+            <Button disabled={revoked || jobBusy} onClick={() => runJob("verify", "Verify")}>
               Run verify
             </Button>
-            <Button disabled={revoked} onClick={() => runJob("test-restore", "Test restore")}>
+            <Button disabled={revoked || jobBusy} onClick={() => runJob("test-restore", "Test restore")}>
               Run test restore
             </Button>
-            <Button disabled={revoked} onClick={() => runJob("maintenance", "Maintenance")}>
+            <Button disabled={revoked || jobBusy} onClick={() => runJob("maintenance", "Maintenance")}>
               Run maintenance
             </Button>
           </div>

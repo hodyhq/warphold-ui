@@ -223,6 +223,26 @@ describe("Device", () => {
     expect(await screen.findByRole("status")).toHaveTextContent(/verify queued/i);
   });
 
+  it("disables the job buttons until the in-flight request settles", async () => {
+    let resolveJob: (() => void) | undefined;
+    createJob.mockReset().mockImplementation(() => new Promise((resolve) => (resolveJob = () => resolve({ id: 1 }))));
+    renderDevice();
+
+    const verifyBtn = await screen.findByRole("button", { name: /run verify/i });
+    const restoreBtn = screen.getByRole("button", { name: /run test restore/i });
+    await userEvent.click(verifyBtn);
+
+    expect(verifyBtn).toBeDisabled();
+    expect(restoreBtn).toBeDisabled();
+    expect(createJob).toHaveBeenCalledTimes(1);
+
+    await userEvent.click(verifyBtn);
+    expect(createJob).toHaveBeenCalledTimes(1);
+
+    resolveJob?.();
+    await waitFor(() => expect(verifyBtn).not.toBeDisabled());
+  });
+
   it("revokes only after the device name is typed", async () => {
     renderDevice();
 

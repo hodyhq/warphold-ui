@@ -40,6 +40,14 @@ export type CommandKind = "snapshot-now" | "pause" | "resume" | "verify";
  */
 export type JobKind = "verify" | "test-restore" | "maintenance" | "mirror" | "reap" | "stats" | "digest";
 
+/**
+ * `Settings` minus the fields the server only ever sends back: `job_intervals`
+ * (write through `setJobInterval`, which takes the flat key `PUT` actually
+ * wants) and `smtp_password_set` (a read-only flag; the password itself is
+ * written as `smtp_password`, which isn't part of `Settings` at all).
+ */
+type SettingsWrite = Omit<Settings, "job_intervals" | "smtp_password_set">;
+
 export const fleetClient = axios.create({
   baseURL: "/api/v1/fleet",
   // The session lives in the HttpOnly wh_session cookie; nothing about the
@@ -198,12 +206,14 @@ export const fleet = {
   /**
    * PUT takes a partial object and answers with the merged result, so one
    * changed field never has to be sent alongside the values it did not touch.
+   * `SettingsWrite` excludes the response-only fields (`job_intervals` goes
+   * through `setJobInterval`; `smtp_password_set` is never sent, only read).
    */
-  async setSetting<K extends keyof Settings>(key: K, value: Settings[K]): Promise<Settings> {
+  async setSetting<K extends keyof SettingsWrite>(key: K, value: SettingsWrite[K]): Promise<Settings> {
     return (await fleetClient.put<Settings>("/settings", { [key]: value })).data;
   },
   /** Same PUT, several keys at once - the SMTP form saves in one round trip. */
-  async setSettings(patch: Partial<Settings> & { smtp_password?: string | null }): Promise<Settings> {
+  async setSettings(patch: Partial<SettingsWrite> & { smtp_password?: string | null }): Promise<Settings> {
     return (await fleetClient.put<Settings>("/settings", patch)).data;
   },
   /**
