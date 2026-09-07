@@ -9,14 +9,15 @@ import {
   Field,
   HealthBar,
   Input,
+  Pill,
   Strip,
   Table,
   Toast,
   toneText,
 } from "../../design/components";
-import type { StripTone, TableRow } from "../../design/components";
-import { apiError, fleet, type CommandKind } from "../../api/fleet";
-import type { AgentDetail, Report, Template } from "../../api/types";
+import type { StripTone, TableRow, Tone } from "../../design/components";
+import { apiError, fleet, type CommandKind, type JobKind } from "../../api/fleet";
+import type { AgentDetail, Job, MirrorState, Report, Template } from "../../api/types";
 import { formatBytes, formatDuration, relativeTime } from "../../lib/format";
 import { HEALTH_TEXT, HEALTH_TONE } from "./health";
 
@@ -54,6 +55,27 @@ function stripFromReports(reports: Report[], now: number = Date.now()): StripTon
   return days;
 }
 
+/**
+ * The device's offsite line, or null when its target keeps no mirror at all -
+ * "there is no offsite copy of this fleet" is a target-level fact and the
+ * device card would only repeat it once per device.
+ */
+export function offsiteLine(
+  m: MirrorState | null,
+  now?: number,
+): { text: string; tone: "bad" | "warn" | "good" } | null {
+  if (!m) {
+    return null;
+  }
+  if (m.mirrored_at === null) {
+    return { text: "Offsite · not mirrored", tone: "bad" };
+  }
+  if (m.stale) {
+    return { text: `Offsite · stale, last ${relativeTime(m.mirrored_at, now)}`, tone: "warn" };
+  }
+  return { text: `Offsite · mirrored ${relativeTime(m.mirrored_at, now)}`, tone: "good" };
+}
+
 function startedLabel(iso: string): string {
   return new Date(iso).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
@@ -76,6 +98,50 @@ function runRows(reports: Report[]): TableRow[] {
       </span>,
       <span key="uploaded" className="font-mono text-[12px] text-muted">
         {r.bytes > 0 ? formatBytes(r.bytes) : "—"}
+      </span>,
+    ],
+  }));
+}
+
+/** Recognized job statuses map to a tone; an unrecognized one (a future
+ * "skipped", say) reads as neutral rather than crashing the pill. */
+const JOB_TONE: Record<string, Tone | "ink"> = {
+  ok: "good",
+  error: "bad",
+  running: "warn",
+  pending: "ink",
+  skipped: "ink",
+};
+
+function jobTone(status: string): Tone | "ink" {
+  return JOB_TONE[status] ?? "ink";
+}
+
+/** How much of a job's detail shows inline before a click reveals the rest. */
+const JOB_DETAIL_PREVIEW = 80;
+
+function jobRows(jobs: Job[]): TableRow[] {
+  return jobs.map((j) => ({
+    key: String(j.id),
+    cells: [
+      <span key="kind" className="font-mono text-[12px]">
+        {j.kind}
+      </span>,
+      <Pill key="status" tone={jobTone(j.status)}>
+        {j.status}
+      </Pill>,
+      <span key="started" className="font-mono text-[12px] text-muted">
+        {j.started_at ? relativeTime(j.started_at) : "queued"}
+      </span>,
+      <span key="finished" className="font-mono text-[12px] text-muted">
+        {j.finished_at ? relativeTime(j.finished_at) : "—"}
+      </span>,
+      <span key="detail" className="truncate font-mono text-[12px] text-muted">
+        {j.detail
+          ? j.detail.length > JOB_DETAIL_PREVIEW
+            ? `${j.detail.slice(0, JOB_DETAIL_PREVIEW)}…`
+            : j.detail
+          : "—"}
       </span>,
     ],
   }));
@@ -117,9 +183,11 @@ export function Device() {
   const [detail, setDetail] = useState<AgentDetail | null>(null);
   const [groupName, setGroupName] = useState("");
   const [template, setTemplate] = useState<Template | undefined>();
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [stale, setStale] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [expandedJob, setExpandedJob] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [typedName, setTypedName] = useState("");
@@ -129,9 +197,11 @@ export function Device() {
     let live = true;
     function load() {
       // The group names the device and picks its template; both are small
-      // list endpoints, so this is three calls per poll, not one per source.
-      Promise.all([fleet.agent(id), fleet.groups(), fleet.templates()]).then(
-        ([a, gs, ts]) => {
+      // list endpoints, so this is four calls per poll, not one per source.
+      // A jobs-request failure must not blank the whole screen - the table
+      // just stays empty until the next poll.
+      Promise.all([fleet.agent(id), fleet.groups(), fleet.templates(), fleet.agentJobs(id).catch(() => [] as Job[])]).then(
+        ([a, gs, ts, js]) => {
           if (!live) {
             return;
           }
@@ -139,6 +209,7 @@ export function Device() {
           setDetail(a);
           setGroupName(group?.name ?? "");
           setTemplate(ts.find((t) => t.id === group?.template_id));
+          setJobs(js);
           setStale(false);
         },
         // A 401 has already sent the browser to the login page from the
@@ -163,6 +234,29 @@ export function Device() {
         () => setToast({ message: `${label} queued; it runs at the device's next check-in.`, bad: false }),
         (err: unknown) => setToast({ message: apiError(err, `Could not queue ${label.toLowerCase()}.`), bad: true }),
       );
+    },
+    [id],
+  );
+
+  // A fleet-side job (verify, test restore, maintenance), not an agent
+  // command: it runs on the server against this device's repository, and
+  // shows up in the Jobs table below rather than waiting for a check-in.
+  // jobBusy disables all three buttons while one request is in flight, so a
+  // double click cannot queue the same job twice.
+  const [jobBusy, setJobBusy] = useState(false);
+  const runJob = useCallback(
+    (kind: JobKind, label: string) => {
+      setJobBusy(true);
+      fleet
+        .createJob(kind, id)
+        .then(
+          () => {
+            setToast({ message: `${label} queued.`, bad: false });
+            setAttempt((n) => n + 1);
+          },
+          (err: unknown) => setToast({ message: apiError(err, `Could not queue ${label.toLowerCase()}.`), bad: true }),
+        )
+        .finally(() => setJobBusy(false));
     },
     [id],
   );
@@ -228,6 +322,8 @@ export function Device() {
   const goodDays = days.filter((d) => d === "good").length;
   const revoked = detail.revoked_at !== null;
   const openReport = expanded === null ? undefined : reports.find((r) => String(r.id) === expanded);
+  const openJob = expandedJob === null ? undefined : jobs.find((j) => String(j.id) === expandedJob);
+  const offsite = offsiteLine(detail.mirror);
 
   return (
     <div className="flex min-h-0 grow flex-col gap-[18px]">
@@ -256,9 +352,6 @@ export function Device() {
           </Button>
           <Button disabled={revoked} onClick={() => command("resume", "Resume")}>
             Resume
-          </Button>
-          <Button disabled title="Runs from Fleet in a later version">
-            Verify
           </Button>
           <Button onClick={openKit}>Open recovery kit</Button>
           <Button onClick={() => setRegenerating(true)}>Regenerate kit</Button>
@@ -311,6 +404,11 @@ export function Device() {
               number out of the bytes these runs happened to upload. */}
           <div className="font-display text-[28px] leading-none font-extrabold">—</div>
           <div className="font-mono text-[12px] text-dim">Repository stats arrive in a later version.</div>
+          {offsite && (
+            <div data-testid="device-offsite" className={clsx("font-mono text-[12px]", toneText[offsite.tone])}>
+              {offsite.text}
+            </div>
+          )}
         </Card>
         <Card data-testid="kpi-days">
           <Eyebrow>Last 30 days</Eyebrow>
@@ -350,6 +448,47 @@ export function Device() {
             </pre>
           )}
         </div>
+      </div>
+
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line-strong pb-[6px]">
+          <Eyebrow>Jobs</Eyebrow>
+          <div className="flex flex-wrap gap-2">
+            <Button disabled={revoked || jobBusy} onClick={() => runJob("verify", "Verify")}>
+              Run verify
+            </Button>
+            <Button disabled={revoked || jobBusy} onClick={() => runJob("test-restore", "Test restore")}>
+              Run test restore
+            </Button>
+            <Button disabled={revoked || jobBusy} onClick={() => runJob("maintenance", "Maintenance")}>
+              Run maintenance
+            </Button>
+          </div>
+        </div>
+        {jobs.length === 0 ? (
+          <p className="m-0 pt-3 text-muted">No jobs run for this device yet.</p>
+        ) : (
+          <Table
+            template="0.7fr 0.8fr 0.9fr 0.9fr 1.6fr"
+            columns={[
+              { key: "kind", label: "Kind" },
+              { key: "status", label: "Status" },
+              { key: "started", label: "Started" },
+              { key: "finished", label: "Finished" },
+              { key: "detail", label: "Detail" },
+            ]}
+            rows={jobRows(jobs)}
+            onRowClick={(key) => setExpandedJob((cur) => (cur === key ? null : key))}
+          />
+        )}
+        {openJob && (
+          <pre
+            data-testid="job-detail"
+            className="m-0 mt-3 border-l-[3px] border-line-strong bg-panel px-[14px] py-3 font-mono text-[12px] whitespace-pre-wrap text-muted"
+          >
+            {openJob.detail || "This job recorded no detail."}
+          </pre>
+        )}
       </div>
 
       {stale && <p className="m-0 font-mono text-[12px] text-dim">Cannot reach the server; showing the last state.</p>}

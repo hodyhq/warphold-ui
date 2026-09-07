@@ -4,16 +4,18 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom";
-import { Device } from "../Device";
-import type { AgentDetail, Group, Report, Template } from "../../../api/types";
+import { Device, offsiteLine } from "../Device";
+import type { AgentDetail, Group, Job, Report, Template } from "../../../api/types";
 
 const agent = vi.fn();
 const groups = vi.fn();
 const templates = vi.fn();
+const agentJobs = vi.fn();
 const agentCommand = vi.fn();
 const revokeAgent = vi.fn();
 const ackKit = vi.fn();
 const regenerateKit = vi.fn();
+const createJob = vi.fn();
 
 vi.mock(import("../../../api/fleet"), async (importOriginal) => ({
   ...(await importOriginal()),
@@ -21,11 +23,13 @@ vi.mock(import("../../../api/fleet"), async (importOriginal) => ({
     agent: (id: string) => agent(id),
     groups: () => groups(),
     templates: () => templates(),
+    agentJobs: (id: string) => agentJobs(id),
     agentCommand: (id: string, kind: string, source?: string) => agentCommand(id, kind, source),
     revokeAgent: (id: string) => revokeAgent(id),
     kitURL: (id: string) => `/api/v1/fleet/agents/${id}/kit`,
     ackKit: (id: string) => ackKit(id),
     regenerateKit: (id: string) => regenerateKit(id),
+    createJob: (kind: string, agentId?: string) => createJob(kind, agentId),
   } as unknown as typeof import("../../../api/fleet").fleet,
 }));
 
@@ -67,6 +71,7 @@ const DETAIL: AgentDetail = {
   revoked_at: null,
   health: "red",
   kit_acked_at: "2026-08-02T00:00:00Z",
+  mirror: null,
   reports: [
     report({
       id: 3,
@@ -89,6 +94,39 @@ const TEMPLATES: Template[] = [
   { id: 2, name: "Server default", sources: ["/srv/media", "~/backups"], policy: {} },
 ];
 
+const JOBS: Job[] = [
+  {
+    id: 11,
+    kind: "verify",
+    agent_id: "ag_nuc",
+    scheduled_for: hoursAgo(3),
+    started_at: hoursAgo(3),
+    finished_at: hoursAgo(3),
+    status: "ok",
+    detail: "no errors found",
+  },
+  {
+    id: 12,
+    kind: "test-restore",
+    agent_id: "ag_nuc",
+    scheduled_for: hoursAgo(1),
+    started_at: hoursAgo(1),
+    finished_at: null,
+    status: "running",
+    detail: "",
+  },
+  {
+    id: 13,
+    kind: "maintenance",
+    agent_id: "ag_nuc",
+    scheduled_for: hoursAgo(30),
+    started_at: hoursAgo(30),
+    finished_at: hoursAgo(30),
+    status: "error",
+    detail: "kopia: maintenance failed: repository locked by another process for a very long time indeed",
+  },
+];
+
 function renderDevice() {
   return render(
     <MemoryRouter initialEntries={["/fleet/devices/ag_nuc"]}>
@@ -104,10 +142,12 @@ beforeEach(() => {
   agent.mockReset().mockResolvedValue(DETAIL);
   groups.mockReset().mockResolvedValue(GROUPS);
   templates.mockReset().mockResolvedValue(TEMPLATES);
+  agentJobs.mockReset().mockResolvedValue(JOBS);
   agentCommand.mockReset().mockResolvedValue({ id: 1 });
   revokeAgent.mockReset().mockResolvedValue(undefined);
   ackKit.mockReset().mockResolvedValue(undefined);
   regenerateKit.mockReset().mockResolvedValue(undefined);
+  createJob.mockReset().mockResolvedValue({ id: 99 });
 });
 
 describe("Device", () => {
@@ -147,12 +187,6 @@ describe("Device", () => {
     await userEvent.click(await screen.findByRole("button", { name: /snapshot now/i }));
     expect(agentCommand).toHaveBeenCalledWith("ag_nuc", "snapshot-now", undefined);
     expect(await screen.findByRole("status")).toHaveTextContent(/snapshot/i);
-  });
-
-  it("keeps Verify disabled until a later plan", async () => {
-    renderDevice();
-
-    expect(await screen.findByRole("button", { name: /verify/i })).toBeDisabled();
   });
 
   it("nags until the recovery kit is acknowledged, and clears without a reload", async () => {
@@ -224,6 +258,61 @@ describe("Device", () => {
     expect(screen.queryByTestId("kit-banner")).not.toBeInTheDocument();
   });
 
+  it("lists jobs with a status pill per row", async () => {
+    renderDevice();
+    await waitFor(() => expect(document.querySelector('[data-row="11"]')).toBeInTheDocument());
+
+    const ok = document.querySelector('[data-row="11"]') as HTMLElement;
+    expect(ok).toHaveTextContent("verify");
+    expect(ok).toHaveTextContent("ok");
+
+    const running = document.querySelector('[data-row="12"]') as HTMLElement;
+    expect(running).toHaveTextContent("test-restore");
+    expect(running).toHaveTextContent("running");
+    expect(running).toHaveTextContent("—"); // finished_at: null renders as an em dash
+
+    const failed = document.querySelector('[data-row="13"]') as HTMLElement;
+    expect(failed).toHaveTextContent("maintenance");
+    expect(failed).toHaveTextContent("error");
+  });
+
+  it("expands a job's detail on click", async () => {
+    renderDevice();
+    await waitFor(() => expect(document.querySelector('[data-row="13"]')).toBeInTheDocument());
+
+    expect(screen.queryByTestId("job-detail")).not.toBeInTheDocument();
+    await userEvent.click(document.querySelector('[data-row="13"]') as HTMLElement);
+    expect(screen.getByTestId("job-detail")).toHaveTextContent("repository locked by another process");
+  });
+
+  it("queues a verify job for this device from Run verify", async () => {
+    renderDevice();
+
+    await userEvent.click(await screen.findByRole("button", { name: /run verify/i }));
+    expect(createJob).toHaveBeenCalledWith("verify", "ag_nuc");
+    expect(await screen.findByRole("status")).toHaveTextContent(/verify queued/i);
+  });
+
+  it("disables the job buttons until the in-flight request settles", async () => {
+    let resolveJob: (() => void) | undefined;
+    createJob.mockReset().mockImplementation(() => new Promise((resolve) => (resolveJob = () => resolve({ id: 1 }))));
+    renderDevice();
+
+    const verifyBtn = await screen.findByRole("button", { name: /run verify/i });
+    const restoreBtn = screen.getByRole("button", { name: /run test restore/i });
+    await userEvent.click(verifyBtn);
+
+    expect(verifyBtn).toBeDisabled();
+    expect(restoreBtn).toBeDisabled();
+    expect(createJob).toHaveBeenCalledTimes(1);
+
+    await userEvent.click(verifyBtn);
+    expect(createJob).toHaveBeenCalledTimes(1);
+
+    resolveJob?.();
+    await waitFor(() => expect(verifyBtn).not.toBeDisabled());
+  });
+
   it("revokes only after the device name is typed", async () => {
     renderDevice();
 
@@ -276,5 +365,57 @@ describe("Device", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: /try again/i }));
     expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent("media-nuc");
+  });
+
+  it("still renders the device when only its jobs fail to load", async () => {
+    agentJobs.mockRejectedValueOnce(new Error("jobs down"));
+    renderDevice();
+
+    expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent("media-nuc");
+    expect(screen.queryByRole("button", { name: /try again/i })).not.toBeInTheDocument();
+  });
+});
+
+describe("the device's offsite line", () => {
+  const NOW = Date.parse("2026-09-02T12:00:00Z");
+
+  it("says nothing when the device's target keeps no mirror", () => {
+    expect(offsiteLine(null, NOW)).toBeNull();
+  });
+
+  it("calls a device that has never reached the mirror not mirrored", () => {
+    expect(offsiteLine({ mirrored_at: null, mirrored_bytes: 0, stale: true }, NOW)).toEqual({
+      text: "Offsite · not mirrored",
+      tone: "bad",
+    });
+  });
+
+  it("flips to stale exactly on the server's flag", () => {
+    const at = "2026-09-02T10:00:00Z";
+    expect(offsiteLine({ mirrored_at: at, mirrored_bytes: 10, stale: false }, NOW)).toEqual({
+      text: "Offsite · mirrored 2 h ago",
+      tone: "good",
+    });
+    expect(offsiteLine({ mirrored_at: at, mirrored_bytes: 10, stale: true }, NOW)).toEqual({
+      text: "Offsite · stale, last 2 h ago",
+      tone: "warn",
+    });
+  });
+
+  it("shows the line in the Stored card", async () => {
+    agent.mockResolvedValue({
+      ...DETAIL,
+      mirror: { mirrored_at: new Date(Date.now() - 7_200_000).toISOString(), mirrored_bytes: 4096, stale: false },
+    });
+    renderDevice();
+
+    expect(await screen.findByTestId("device-offsite")).toHaveTextContent("Offsite · mirrored 2 h ago");
+  });
+
+  it("leaves the Stored card alone when the target keeps no mirror", async () => {
+    renderDevice();
+
+    expect(await screen.findByTestId("kpi-stored")).toBeInTheDocument();
+    expect(screen.queryByTestId("device-offsite")).not.toBeInTheDocument();
   });
 });
