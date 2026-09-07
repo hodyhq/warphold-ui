@@ -211,7 +211,7 @@ function footnote(t: Target): string {
   if (t.mirror_kind) {
     return `Mirrored to ${t.mirror_kind.toUpperCase()} · ${t.mirror_bucket ?? ""}`.trim();
   }
-  return "No immutability. Sync to B2 is a later feature.";
+  return "No offsite copy yet — attach a mirror to this target.";
 }
 
 /** The two kinds, as the Activate wizard also presents them. */
