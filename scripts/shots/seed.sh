@@ -24,6 +24,10 @@ BIN=${2:?warphold binary}
 FLEET_API=${FLEET_API_PORT:-51611}
 FLEET2_API=${FLEET2_API_PORT:-51612}
 SOLO_API=${SOLO_API_PORT:-51613}
+# The UI origin write_plan will proxy this server under - fleet activate
+# needs it up front now: issuing an enrollment token 409s until public_url is
+# set, and the seed issues one for every device.
+FLEET_UI=${FLEET_UI_PORT:-5411}
 
 EMAIL=admin@example.com
 PASSWORD=testpassword1
@@ -92,7 +96,8 @@ start() { # start <dir> <port> [extra...]
 }
 
 # ---------------------------------------------------------------- fleet server
-wh "$ROOT/fleet" fleet activate --email "$EMAIL" --admin-password "$PASSWORD" --passphrase "$PASSPHRASE" >/dev/null
+wh "$ROOT/fleet" fleet activate --email "$EMAIL" --admin-password "$PASSWORD" --passphrase "$PASSPHRASE" \
+  --public-url "http://localhost:$FLEET_UI" --hosted-root "/srv/warphold/hosted" >/dev/null
 start "$ROOT/fleet" "$FLEET_API"
 
 JAR=$ROOT/fleet/cookies
