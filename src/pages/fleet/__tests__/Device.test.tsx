@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,6 +13,8 @@ const templates = vi.fn();
 const agentJobs = vi.fn();
 const agentCommand = vi.fn();
 const revokeAgent = vi.fn();
+const ackKit = vi.fn();
+const regenerateKit = vi.fn();
 const createJob = vi.fn();
 
 vi.mock(import("../../../api/fleet"), async (importOriginal) => ({
@@ -24,6 +26,9 @@ vi.mock(import("../../../api/fleet"), async (importOriginal) => ({
     agentJobs: (id: string) => agentJobs(id),
     agentCommand: (id: string, kind: string, source?: string) => agentCommand(id, kind, source),
     revokeAgent: (id: string) => revokeAgent(id),
+    kitURL: (id: string) => `/api/v1/fleet/agents/${id}/kit`,
+    ackKit: (id: string) => ackKit(id),
+    regenerateKit: (id: string) => regenerateKit(id),
     createJob: (kind: string, agentId?: string) => createJob(kind, agentId),
   } as unknown as typeof import("../../../api/fleet").fleet,
 }));
@@ -65,6 +70,7 @@ const DETAIL: AgentDetail = {
   last_seen_at: hoursAgo(1),
   revoked_at: null,
   health: "red",
+  kit_acked_at: "2026-08-02T00:00:00Z",
   mirror: null,
   reports: [
     report({
@@ -139,6 +145,8 @@ beforeEach(() => {
   agentJobs.mockReset().mockResolvedValue(JOBS);
   agentCommand.mockReset().mockResolvedValue({ id: 1 });
   revokeAgent.mockReset().mockResolvedValue(undefined);
+  ackKit.mockReset().mockResolvedValue(undefined);
+  regenerateKit.mockReset().mockResolvedValue(undefined);
   createJob.mockReset().mockResolvedValue({ id: 99 });
 });
 
@@ -181,11 +189,158 @@ describe("Device", () => {
     expect(await screen.findByRole("status")).toHaveTextContent(/snapshot/i);
   });
 
-  it("keeps Recovery kit disabled until a later plan", async () => {
+  it("nags until the recovery kit is acknowledged, and clears without a reload", async () => {
+    agent.mockResolvedValue({ ...DETAIL, kit_acked_at: null });
     renderDevice();
 
-    await screen.findByRole("heading", { level: 1 });
-    expect(screen.getByRole("button", { name: /recovery kit/i })).toBeDisabled();
+    expect(await screen.findByTestId("kit-banner")).toHaveTextContent(/no one has confirmed holding/i);
+
+    // The poll would answer with the stale un-acked device; the banner has to
+    // go on the ack itself, not on the next refetch.
+    agent.mockResolvedValue({ ...DETAIL, kit_acked_at: null });
+    await userEvent.click(screen.getByRole("button", { name: /mark as saved/i }));
+
+    expect(ackKit).toHaveBeenCalledWith("ag_nuc");
+    await waitFor(() => expect(screen.queryByTestId("kit-banner")).not.toBeInTheDocument());
+    expect(await screen.findByRole("status")).toHaveTextContent(/marked as saved/i);
+  });
+
+  it("hides the banner for a device whose kit was already acknowledged", async () => {
+    renderDevice();
+
+    expect(await screen.findByRole("heading", { level: 1 })).toBeInTheDocument();
+    expect(screen.queryByTestId("kit-banner")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /mark as saved/i })).not.toBeInTheDocument();
+  });
+
+  it("opens the recovery kit in a new tab", async () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    renderDevice();
+
+    await userEvent.click(await screen.findByRole("button", { name: /open recovery kit/i }));
+    expect(open).toHaveBeenCalledWith("/api/v1/fleet/agents/ag_nuc/kit", "_blank", "noopener,noreferrer");
+    open.mockRestore();
+  });
+
+  it("warns that a hosted device's printed key stops working before it regenerates the kit", async () => {
+    renderDevice();
+
+    await userEvent.click(await screen.findByRole("button", { name: /regenerate kit/i }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent(/for devices on a hosted target, the read-only key on the current kit stops working immediately/i);
+    expect(regenerateKit).not.toHaveBeenCalled();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: /cancel/i }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(regenerateKit).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: /regenerate kit/i }));
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: /regenerate kit/i }));
+    expect(regenerateKit).toHaveBeenCalledWith("ag_nuc");
+    expect(await screen.findByRole("status")).toHaveTextContent(/regenerated/i);
+  });
+
+  it("brings the ack banner back once a regenerate succeeds", async () => {
+    renderDevice();
+
+    expect(screen.queryByTestId("kit-banner")).not.toBeInTheDocument();
+
+    await userEvent.click(await screen.findByRole("button", { name: /regenerate kit/i }));
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: /regenerate kit/i }));
+    await screen.findByRole("status");
+
+    // The old kit's ack no longer covers the new key - the banner has to come
+    // straight back, not wait on the next 30 s poll.
+    expect(await screen.findByTestId("kit-banner")).toHaveTextContent(/no one has confirmed holding/i);
+  });
+
+  it("does not let a poll that started before a regenerate clobber the reset banner when it resolves late", async () => {
+    // Only the poll's setInterval needs faking - leave setTimeout/rAF/Date
+    // real so userEvent's own click plumbing behaves normally.
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const user = userEvent.setup();
+    try {
+      // Call 1: the initial mount load - kit already acked, banner hidden.
+      agent.mockResolvedValueOnce(DETAIL);
+      // Call 2: the 30 s poll. It is in flight (unresolved) when the
+      // regenerate below fires, and only settles - with stale, still-acked
+      // data - after the optimistic reset has already landed. The server
+      // never clears kit_acked_at on regenerate, so this is exactly what a
+      // real poll would answer with; nothing else re-fetches after the
+      // mutation, so no third call is queued.
+      let resolveStalePoll: ((v: typeof DETAIL) => void) | undefined;
+      agent.mockImplementationOnce(() => new Promise((resolve) => (resolveStalePoll = resolve)));
+
+      renderDevice();
+      await act(() => vi.advanceTimersByTimeAsync(0)); // let the initial mount load settle and render
+      expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
+      expect(screen.queryByTestId("kit-banner")).not.toBeInTheDocument();
+
+      await act(() => vi.advanceTimersByTimeAsync(30_000)); // fires the poll (call 2, now pending)
+
+      await user.click(screen.getByRole("button", { name: /regenerate kit/i }));
+      await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /regenerate kit/i }));
+      await screen.findByRole("status");
+      expect(screen.getByTestId("kit-banner")).toBeInTheDocument();
+      expect(agent).toHaveBeenCalledTimes(2); // no extra fetch triggered by the mutation itself
+
+      // The stale poll (call 2) finally resolves with old, acked data - it
+      // started before the reset and knows nothing about it, so it must be
+      // ignored rather than clobbering the banner.
+      resolveStalePoll?.(DETAIL);
+      await act(() => vi.advanceTimersByTimeAsync(0));
+
+      expect(screen.getByTestId("kit-banner")).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not let a poll that starts after a regenerate restore the stale acked state", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const user = userEvent.setup();
+    try {
+      // Call 1: the initial mount load - kit already acked, banner hidden.
+      agent.mockResolvedValueOnce(DETAIL);
+      renderDevice();
+      await act(() => vi.advanceTimersByTimeAsync(0));
+      expect(screen.queryByTestId("kit-banner")).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: /regenerate kit/i }));
+      await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /regenerate kit/i }));
+      await screen.findByRole("status");
+      expect(screen.getByTestId("kit-banner")).toBeInTheDocument();
+
+      // Call 2: the next 30 s poll, which starts (and resolves) after the
+      // regenerate landed - so the kitMutationRef guard alone lets it through.
+      // The server still never clears kit_acked_at on regenerate, so it
+      // answers with the same old, still-acked device; the banner must not
+      // vanish again on the strength of that stale field.
+      agent.mockResolvedValueOnce(DETAIL);
+      await act(() => vi.advanceTimersByTimeAsync(30_000));
+
+      expect(screen.getByTestId("kit-banner")).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("shows the server's error and leaves the kit unchanged when regenerate is refused for a non-hosted target", async () => {
+    regenerateKit.mockRejectedValueOnce(
+      Object.assign(new Error("refused"), {
+        response: { status: 409, data: { error: "this target has no per-device read-only key to regenerate" } },
+      }),
+    );
+    renderDevice();
+
+    await userEvent.click(await screen.findByRole("button", { name: /regenerate kit/i }));
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: /regenerate kit/i }));
+
+    const status = await screen.findByRole("status");
+    expect(status).toHaveTextContent(/this target has no per-device read-only key to regenerate/i);
+    expect(status).not.toHaveTextContent(/regenerated/i);
+    // The device's own ack state is untouched by a failed regenerate.
+    expect(screen.queryByTestId("kit-banner")).not.toBeInTheDocument();
   });
 
   it("lists jobs with a status pill per row", async () => {

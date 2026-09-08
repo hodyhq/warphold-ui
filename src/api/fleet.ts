@@ -33,6 +33,9 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 /** Commands `handleAgentCommand` accepts. */
 export type CommandKind = "snapshot-now" | "pause" | "resume" | "verify";
 
+/** Prefix every Fleet route shares; also how the kit URL is built for a new tab. */
+const BASE_URL = "/api/v1/fleet";
+
 /**
  * Kinds `handleJobCreate` accepts (`fleet/jobs.KindList`). "stats" and
  * "digest" are Task 31's fleet-wide jobs: queuing them 400s ("kind must be
@@ -49,7 +52,7 @@ export type JobKind = "verify" | "test-restore" | "maintenance" | "mirror" | "re
 type SettingsWrite = Omit<Settings, "job_intervals" | "smtp_password_set">;
 
 export const fleetClient = axios.create({
-  baseURL: "/api/v1/fleet",
+  baseURL: BASE_URL,
   // The session lives in the HttpOnly wh_session cookie; nothing about the
   // session is ever put in localStorage, where a script could read it.
   withCredentials: true,
@@ -155,6 +158,22 @@ export const fleet = {
   },
   async revokeAgent(id: string): Promise<void> {
     await fleetClient.post(`/agents/${encodeURIComponent(id)}/revoke`);
+  },
+
+  /**
+   * The recovery kit is a printable HTML page carrying the repository
+   * password, not JSON: it is opened in a tab and never held by this app. The
+   * server answers it with `no-store` and a `frame-ancestors 'none'` CSP, so
+   * it cannot be embedded either.
+   */
+  kitURL: (id: string) => `${BASE_URL}/agents/${encodeURIComponent(id)}/kit`,
+  /** Records that an admin holds the printed kit; clears the un-acked nag. */
+  async ackKit(id: string): Promise<void> {
+    await fleetClient.post(`/agents/${encodeURIComponent(id)}/kit/ack`);
+  },
+  /** Retires the printed kit's read-only key and mints a replacement. */
+  async regenerateKit(id: string): Promise<void> {
+    await fleetClient.post(`/agents/${encodeURIComponent(id)}/kit/regenerate`);
   },
 
   /** Bounded to the 50 most recent rows (`jobsPerAgent`, admin_jobs.go). */

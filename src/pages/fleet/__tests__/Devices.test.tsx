@@ -36,6 +36,7 @@ function agent(over: Partial<AgentOut> & Pick<AgentOut, "id" | "name">): AgentOu
     last_seen_at: "2026-09-02T09:00:00Z",
     revoked_at: null,
     health: "green",
+    kit_acked_at: "2026-08-02T00:00:00Z",
     ...over,
   };
 }
@@ -114,6 +115,19 @@ beforeEach(() => {
 });
 
 describe("Devices", () => {
+  it("marks only the devices whose recovery kit nobody has acknowledged", async () => {
+    agents.mockResolvedValue([
+      agent({ id: "ag_fw13", name: "laptop-1", group_id: 1 }),
+      agent({ id: "ag_nuc", name: "media-nuc", group_id: 2, kit_acked_at: null }),
+    ]);
+    renderDevices();
+
+    await waitFor(() => expect(document.querySelector('[data-row="ag_nuc"]')).toBeInTheDocument());
+    expect(screen.getAllByTestId("kit-marker")).toHaveLength(1);
+    expect(document.querySelector('[data-row="ag_nuc"]')).toHaveTextContent("No kit");
+    expect(document.querySelector('[data-row="ag_fw13"]')).not.toHaveTextContent("No kit");
+  });
+
   it("lists the live devices with group, strip, last snapshot, size and agent version", async () => {
     renderDevices();
 

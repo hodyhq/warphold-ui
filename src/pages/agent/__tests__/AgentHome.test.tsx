@@ -135,10 +135,30 @@ describe("AgentHome", () => {
   });
 
   it("counts only the days with a complete snapshot in the 30-day strip", async () => {
-    render(<AgentHome />);
+    // The strip buckets snapshots by UTC day relative to Date.now(), so a run
+    // straddling a UTC midnight (module load vs. render) could shift a
+    // snapshot into a different day than the one it was built for. Pin the
+    // clock, well clear of midnight, and build the snapshots against it.
+    vi.useFakeTimers({ now: new Date("2026-06-15T12:00:00.000Z"), shouldAdvanceTime: true });
+    try {
+      snapshots.mockResolvedValue({
+        snapshots: [
+          snapshot(hoursAgo(1)),
+          snapshot(daysAgo(1)),
+          snapshot(daysAgo(2)),
+          snapshot(daysAgo(5), { incomplete: "canceled" }),
+        ],
+        unfilteredCount: 4,
+        uniqueCount: 4,
+      });
 
-    // Four snapshots over four days, one of them interrupted.
-    expect(await screen.findByText("3 of 30 days with a good backup")).toBeInTheDocument();
+      render(<AgentHome />);
+
+      // Four snapshots over four days, one of them interrupted.
+      expect(await screen.findByText("3 of 30 days with a good backup")).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("lists the sources by path and schedule, and never the target", async () => {

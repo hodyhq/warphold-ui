@@ -34,6 +34,8 @@ export interface AgentOut {
   last_seen_at: string | null;
   revoked_at: string | null;
   health: Health;
+  /** When an admin confirmed holding the printed recovery kit; null nags. */
+  kit_acked_at: string | null;
 }
 
 /** `store.Report`; its JSON tags are the report table's column names. */

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import clsx from "clsx";
 import {
@@ -189,23 +189,39 @@ export function Device() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [expandedJob, setExpandedJob] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
   const [typedName, setTypedName] = useState("");
   const [toast, setToast] = useState<{ message: string; bad: boolean } | null>(null);
+
+  // Bumped by ackKit/regenerateKit's optimistic update. A load already in
+  // flight when one of those lands started before it and knows nothing about
+  // it - answering with the server's now-stale kit_acked_at - so it must be
+  // dropped rather than clobbering the fresher local state.
+  const kitMutationRef = useRef(0);
+
+  // The server never clears kit_acked_at on regenerate (fleet/api/admin_kit.go,
+  // handleAgentKitRegenerate never calls SetKitAck), so every poll after one -
+  // not just one already in flight - would otherwise answer with the old,
+  // still-acked timestamp and hide the banner again within 30 s. null forces
+  // the banner to stay up regardless of what a poll reports; undefined trusts
+  // the server, which is right again the moment a real ack lands.
+  const kitAckOverrideRef = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
     let live = true;
     function load() {
+      const startedAfter = kitMutationRef.current;
       // The group names the device and picks its template; both are small
       // list endpoints, so this is four calls per poll, not one per source.
       // A jobs-request failure must not blank the whole screen - the table
       // just stays empty until the next poll.
       Promise.all([fleet.agent(id), fleet.groups(), fleet.templates(), fleet.agentJobs(id).catch(() => [] as Job[])]).then(
         ([a, gs, ts, js]) => {
-          if (!live) {
+          if (!live || kitMutationRef.current !== startedAfter) {
             return;
           }
           const group = gs.find((g) => g.id === a.group_id);
-          setDetail(a);
+          setDetail(kitAckOverrideRef.current === undefined ? a : { ...a, kit_acked_at: kitAckOverrideRef.current });
           setGroupName(group?.name ?? "");
           setTemplate(ts.find((t) => t.id === group?.template_id));
           setJobs(js);
@@ -281,6 +297,47 @@ export function Device() {
     );
   }, [id, navigate]);
 
+  // The kit is a page, not data: it opens in its own tab so the password it
+  // carries is never held by this app, and so it can be printed from there.
+  const openKit = useCallback(() => window.open(fleet.kitURL(id), "_blank", "noopener,noreferrer"), [id]);
+
+  // Optimistic: the banner and the list marker key off kit_acked_at, and the
+  // 30 s poll replaces this guess with the server's timestamp either way -
+  // except a poll already in flight when the guess lands, which knows
+  // nothing about it and must not clobber it (kitMutationRef above).
+  const ackKit = useCallback(() => {
+    fleet.ackKit(id).then(
+      () => {
+        kitMutationRef.current += 1;
+        // A real ack was just recorded server-side, so future polls are
+        // trustworthy again.
+        kitAckOverrideRef.current = undefined;
+        setDetail((d) => (d ? { ...d, kit_acked_at: new Date().toISOString() } : d));
+        setToast({ message: "Recovery kit marked as saved.", bad: false });
+      },
+      (err: unknown) => setToast({ message: apiError(err, "Could not record the acknowledgement."), bad: true }),
+    );
+  }, [id]);
+
+  const regenerateKit = useCallback(() => {
+    setRegenerating(false);
+    fleet.regenerateKit(id).then(
+      () => {
+        // The new key hasn't been printed or saved yet, so the ack from the
+        // retired kit no longer counts - bring the banner straight back
+        // rather than waiting on the next 30 s poll. The server itself never
+        // clears kit_acked_at on regenerate, so every poll from here on would
+        // just restore it - kitAckOverrideRef pins the banner up until a real
+        // ack clears the override, not just for a load already in flight.
+        kitMutationRef.current += 1;
+        kitAckOverrideRef.current = null;
+        setDetail((d) => (d ? { ...d, kit_acked_at: null } : d));
+        setToast({ message: "Recovery kit regenerated; open it again to print the new key.", bad: false });
+      },
+      (err: unknown) => setToast({ message: apiError(err, "Could not regenerate the recovery kit."), bad: true }),
+    );
+  }, [id]);
+
   if (!detail) {
     if (!stale) {
       return null;
@@ -328,9 +385,8 @@ export function Device() {
           <Button disabled={revoked} onClick={() => command("resume", "Resume")}>
             Resume
           </Button>
-          <Button disabled title="Recovery kits arrive with Plan 3">
-            Recovery kit
-          </Button>
+          <Button onClick={openKit}>Open recovery kit</Button>
+          <Button onClick={() => setRegenerating(true)}>Regenerate kit</Button>
           <Button variant="danger" disabled={revoked} onClick={openConfirm}>
             Revoke
           </Button>
@@ -343,6 +399,21 @@ export function Device() {
             This device was revoked on {new Date(detail.revoked_at as string).toLocaleDateString()}. It can no longer
             reach the repository; its snapshots stay in the target.
           </span>
+        </Card>
+      )}
+
+      {/* Persistent until someone acknowledges holding the kit: a fleet whose
+          repository password exists only inside the fleet is one disk away
+          from being unrecoverable. */}
+      {detail.kit_acked_at === null && (
+        <Card tone="warn" data-testid="kit-banner" className="md:flex-row md:items-center md:justify-between">
+          <span>
+            No one has confirmed holding this device&apos;s recovery kit. Open it, print or store it away from this
+            fleet, then mark it as saved.
+          </span>
+          <Button variant="primary" className="self-start md:self-auto" onClick={ackKit}>
+            Mark as saved
+          </Button>
         </Card>
       )}
 
@@ -453,6 +524,19 @@ export function Device() {
       </div>
 
       {stale && <p className="m-0 font-mono text-[12px] text-dim">Cannot reach the server; showing the last state.</p>}
+
+      <Dialog open={regenerating} onClose={() => setRegenerating(false)} title="Regenerate this recovery kit?">
+        <p className="m-0 text-ink-soft">
+          For devices on a hosted target, the read-only key on the current kit stops working immediately; anyone
+          holding a copy can no longer restore this device with it. You&apos;ll need to open and save the new kit.
+        </p>
+        <div className="flex justify-end gap-2">
+          <Button onClick={() => setRegenerating(false)}>Cancel</Button>
+          <Button variant="danger" onClick={regenerateKit}>
+            Regenerate kit
+          </Button>
+        </div>
+      </Dialog>
 
       <Dialog open={confirming} onClose={closeConfirm} title={`Revoke ${detail.name}?`}>
         <p className="m-0 text-ink-soft">

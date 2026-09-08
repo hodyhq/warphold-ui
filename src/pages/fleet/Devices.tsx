@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import clsx from "clsx";
-import { Button, Eyebrow, HealthBar, Strip, Table, toneText } from "../../design/components";
+import { Button, Eyebrow, HealthBar, Pill, Strip, Table, toneText } from "../../design/components";
 import type { StripTone, TableRow } from "../../design/components";
 import { fleet } from "../../api/fleet";
 import type { AgentOut, Overview } from "../../api/types";
@@ -219,8 +219,20 @@ function toTableRow(row: DeviceRow): TableRow {
     key: agent.id,
     cells: [
       <HealthBar key="bar" tone={tone} />,
-      <span key="device" className="truncate font-semibold">
-        {agent.name}
+      <span key="device" className="flex min-w-0 items-center gap-2">
+        <span className="truncate font-semibold">{agent.name}</span>
+        {/* Compact half of the device page's banner: nobody has confirmed
+            holding this device's recovery kit. */}
+        {agent.kit_acked_at === null && (
+          <Pill
+            tone="warn"
+            data-testid="kit-marker"
+            title="No one has confirmed holding this device's recovery kit"
+            className="shrink-0"
+          >
+            No kit
+          </Pill>
+        )}
       </span>,
       <span key="group" className="truncate text-muted">
         {row.group}

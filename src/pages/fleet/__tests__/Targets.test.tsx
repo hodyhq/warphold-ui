@@ -52,6 +52,7 @@ function agent(id: string, groupID: number): AgentOut {
     last_seen_at: null,
     revoked_at: null,
     health: "green",
+    kit_acked_at: "2026-08-02T00:00:00Z",
   };
 }
 
