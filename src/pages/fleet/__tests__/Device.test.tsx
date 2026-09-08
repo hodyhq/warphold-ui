@@ -296,6 +296,35 @@ describe("Device", () => {
     }
   });
 
+  it("does not let a poll that starts after a regenerate restore the stale acked state", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const user = userEvent.setup();
+    try {
+      // Call 1: the initial mount load - kit already acked, banner hidden.
+      agent.mockResolvedValueOnce(DETAIL);
+      renderDevice();
+      await act(() => vi.advanceTimersByTimeAsync(0));
+      expect(screen.queryByTestId("kit-banner")).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: /regenerate kit/i }));
+      await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /regenerate kit/i }));
+      await screen.findByRole("status");
+      expect(screen.getByTestId("kit-banner")).toBeInTheDocument();
+
+      // Call 2: the next 30 s poll, which starts (and resolves) after the
+      // regenerate landed - so the kitMutationRef guard alone lets it through.
+      // The server still never clears kit_acked_at on regenerate, so it
+      // answers with the same old, still-acked device; the banner must not
+      // vanish again on the strength of that stale field.
+      agent.mockResolvedValueOnce(DETAIL);
+      await act(() => vi.advanceTimersByTimeAsync(30_000));
+
+      expect(screen.getByTestId("kit-banner")).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("shows the server's error and leaves the kit unchanged when regenerate is refused for a non-hosted target", async () => {
     regenerateKit.mockRejectedValueOnce(
       Object.assign(new Error("refused"), {

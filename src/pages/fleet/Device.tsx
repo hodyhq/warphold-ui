@@ -199,6 +199,14 @@ export function Device() {
   // dropped rather than clobbering the fresher local state.
   const kitMutationRef = useRef(0);
 
+  // The server never clears kit_acked_at on regenerate (fleet/api/admin_kit.go,
+  // handleAgentKitRegenerate never calls SetKitAck), so every poll after one -
+  // not just one already in flight - would otherwise answer with the old,
+  // still-acked timestamp and hide the banner again within 30 s. null forces
+  // the banner to stay up regardless of what a poll reports; undefined trusts
+  // the server, which is right again the moment a real ack lands.
+  const kitAckOverrideRef = useRef<string | null | undefined>(undefined);
+
   useEffect(() => {
     let live = true;
     function load() {
@@ -213,7 +221,7 @@ export function Device() {
             return;
           }
           const group = gs.find((g) => g.id === a.group_id);
-          setDetail(a);
+          setDetail(kitAckOverrideRef.current === undefined ? a : { ...a, kit_acked_at: kitAckOverrideRef.current });
           setGroupName(group?.name ?? "");
           setTemplate(ts.find((t) => t.id === group?.template_id));
           setJobs(js);
@@ -301,6 +309,9 @@ export function Device() {
     fleet.ackKit(id).then(
       () => {
         kitMutationRef.current += 1;
+        // A real ack was just recorded server-side, so future polls are
+        // trustworthy again.
+        kitAckOverrideRef.current = undefined;
         setDetail((d) => (d ? { ...d, kit_acked_at: new Date().toISOString() } : d));
         setToast({ message: "Recovery kit marked as saved.", bad: false });
       },
@@ -315,10 +326,11 @@ export function Device() {
         // The new key hasn't been printed or saved yet, so the ack from the
         // retired kit no longer counts - bring the banner straight back
         // rather than waiting on the next 30 s poll. The server itself never
-        // clears kit_acked_at on regenerate, so a fresh fetch right now would
-        // just restore it - kitMutationRef only blocks a load already in
-        // flight; it does not trigger a new one.
+        // clears kit_acked_at on regenerate, so every poll from here on would
+        // just restore it - kitAckOverrideRef pins the banner up until a real
+        // ack clears the override, not just for a load already in flight.
         kitMutationRef.current += 1;
+        kitAckOverrideRef.current = null;
         setDetail((d) => (d ? { ...d, kit_acked_at: null } : d));
         setToast({ message: "Recovery kit regenerated; open it again to print the new key.", bad: false });
       },
